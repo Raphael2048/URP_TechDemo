@@ -188,6 +188,7 @@ real4  unity_FogColor;
 float4x4 glstate_matrix_projection;
 float4x4 unity_MatrixV;
 float4x4 unity_MatrixInvV;
+float4x4 unity_MatrixInvP;
 float4x4 unity_MatrixVP;
 float4x4 unity_MatrixInvVP;
 float4 unity_StereoScaleOffset;
@@ -241,6 +242,33 @@ float4x4 OptimizeProjectionMatrix(float4x4 M)
     M._21_41 = 0;
     M._12_42 = 0;
     return M;
+}
+
+float4 _LightGridZParams;
+// w参数，手机上为-0.36,PC上是1，用于计算光照范围，因为unity在手机上时，保存点光源范围方式不同
+float4 _LightGridSize;
+// 2^6 = 64
+#define LIGHT_GRID_INDEX_SHIFT 6
+StructuredBuffer<uint> _NumCulledLightsGrid;
+StructuredBuffer<uint> _CulledLightDataGrid;
+
+// 将观察深度（正值，不是ViewSpace的负值深度），转到裁剪空间深度
+float EyeToClipDepth(float depth)
+{
+    float z = ((1.0f / depth) - _ZBufferParams.w) / _ZBufferParams.z;
+#if !UNITY_REVERSED_Z
+    z = z * 2 - 1;
+#endif
+    return z;
+}
+
+// 将裁剪空间深度，转到观察深度（正值，不是ViewSpace的负值深度）
+float ClipToEyeDepth(float z)
+{
+#if !UNITY_REVERSED_Z
+    z = z * 0.5 + 0.5;
+#endif
+    return LinearEyeDepth(z, _ZBufferParams);
 }
 
 #endif // UNIVERSAL_SHADER_VARIABLES_INCLUDED

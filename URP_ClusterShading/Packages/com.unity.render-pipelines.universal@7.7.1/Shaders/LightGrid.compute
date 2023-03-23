@@ -1,0 +1,209 @@
+﻿#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/UnityInput.hlsl"
+
+// 使用数组格式
+RWStructuredBuffer<uint> _RWNumCulledLightsGrid;
+RWStructuredBuffer<uint> _RWCulledLightDataGrid;
+#pragma kernel LightGridCS // 0
+
+// 使用链表格式
+RWStructuredBuffer<uint> _RWNextCulledLightLink; // length=1
+RWStructuredBuffer<uint> _RWNextCulledLightData; // length=1
+RWStructuredBuffer<uint> _RWStartOffsetGrid;
+RWStructuredBuffer<uint> _RWCulledLightLinks;
+
+// RWTexture3D<float4> _DebugTex;
+#pragma enable_d3d11_debug_symbols
+#pragma kernel ClearStartOffsetGrid // 1
+#pragma kernel ClearLink // 2
+#pragma kernel LightGridCS USE_LINKED_CULL_LIST // 3
+#pragma kernel LightGridCompactCS 
+
+float SquareDistanceFromBoxToPoint(float3 BoxCenter, float3 BoxExtent, float3 InPoint)
+{
+	float3 AxisDistance = max(abs(InPoint - BoxCenter) - BoxExtent, 0);
+	return dot(AxisDistance, AxisDistance);
+}
+
+bool AabbOutsidePlane(float3 center, float3 extents, float4 plane)
+{
+	float dist = dot(float4(center, 1.0), plane);
+	float radius = dot(extents, abs(plane.xyz));
+
+	return dist > radius;
+}
+
+/**
+* Approximate cone / aabb test that creates a single separating plane that lies in the cone on the side facing the centre of the Aabb
+* Returns false if the Aabb is outside (entirely on the positive side) of this plane.
+* Returns true otherwise, only works for 'acute angled' cones, where the angle is < 90 degrees.
+* Is approximate, in that it can yield false negatives, i.e., that an Aabb may be actually outside, but the test still returns false.
+* Since the intended use is to cull light cones, this is acceptable whereas false positives would cause glitches.
+*/
+bool IsAabbOutsideInfiniteAcuteConeApprox(float3 ConeVertex, float3 ConeAxis, float TanConeAngle, float3 AabbCentre, float3 AabbExt)
+{
+	// 1. find plane (well, base) in which normal lies, and which is perpendicular to axis and centre of aabb.
+	float3 D = AabbCentre - ConeVertex;
+
+	// perpendicular to cone axis in plane of cone axis and aabb centre.
+	float3 M = -normalize(cross(cross(D, ConeAxis), ConeAxis));
+	float3 N = -TanConeAngle * ConeAxis + M;
+	float4 Plane = float4(N, 0.0);
+	
+	return AabbOutsidePlane(D, AabbExt, Plane);
+}
+
+
+[numthreads(4, 4, 4)] 
+void LightGridCS(uint3 id : SV_DispatchThreadID)
+{
+	if(all(id < _LightGridSize))
+	{
+		float2 InvCulledGridSizeF = (1 << LIGHT_GRID_INDEX_SHIFT) * (_ScreenParams.zw - 1);
+
+		#if UNITY_REVERSED_Z
+			const float2 TileSize = InvCulledGridSizeF * 2 * float2(1, -1);
+			const float2 UnitPlaneMin = float2(-1, 1);
+			float2 UnitPlaneTileMin = id.xy * TileSize + UnitPlaneMin;
+			float2 UnitPlaneTileMax = (id.xy + 1) * TileSize + UnitPlaneMin;
+		#else
+			const float2 TileSize = InvCulledGridSizeF * 2;
+			const float2 UnitPlaneMin = float2(-1, -1);
+			float2 UnitPlaneTileMin = id.xy * TileSize + UnitPlaneMin;
+			float2 UnitPlaneTileMax = (id.xy + 1) * TileSize + UnitPlaneMin;
+		#endif
+		
+		uint GridIndex = (id.z * _LightGridSize.y + id.y) * _LightGridSize.x + id.x;
+	    
+		float NearZ = EyeToClipDepth(LightGridZToEyeDepth(id.z));
+		float FarZ = EyeToClipDepth(LightGridZToEyeDepth(id.z + 1));
+		float4 ViewSpaceFarCornerA = mul(UNITY_MATRIX_I_P, float4(UnitPlaneTileMax, FarZ, 1));
+		ViewSpaceFarCornerA /= ViewSpaceFarCornerA.w;
+		float4 ViewSpaceFarCornerB = mul(UNITY_MATRIX_I_P, float4(UnitPlaneTileMin, FarZ, 1));
+		ViewSpaceFarCornerB /= ViewSpaceFarCornerB.w;
+		
+		float4 ViewSpaceNearCornerA = mul(UNITY_MATRIX_I_P, float4(UnitPlaneTileMax, NearZ, 1));
+		ViewSpaceNearCornerA /= ViewSpaceNearCornerA.w;
+		float4 ViewSpaceNearCornerB = mul(UNITY_MATRIX_I_P, float4(UnitPlaneTileMin, NearZ, 1));
+		ViewSpaceNearCornerB /= ViewSpaceNearCornerB.w;
+
+		float2 MinCorner = min(min(ViewSpaceFarCornerA.xy, ViewSpaceFarCornerB.xy), min(ViewSpaceNearCornerA.xy, ViewSpaceNearCornerB.xy));
+		float2 MaxCorner = max(max(ViewSpaceFarCornerA.xy, ViewSpaceFarCornerB.xy), max(ViewSpaceNearCornerA.xy, ViewSpaceNearCornerB.xy));;
+
+		float3 AABBMin = float3(MinCorner, ViewSpaceFarCornerA.z);
+		float3 AABBMax = float3(MaxCorner, ViewSpaceNearCornerA.z);
+		float3 ViewClusterCenter = 0.5f * (AABBMin + AABBMax);
+		float3 ViewClusterExtent = AABBMax - ViewClusterCenter;
+		uint AllLightsCount = _AdditionalLightsCount.y;
+		uint ClusterLightCount = 0;
+		uint maxLightsPerCluster = _AdditionalLightsCount.z;
+		uint maxValueCount = maxLightsPerCluster >> 2;
+		// 计算最大个数的规则和C#中代码相同
+		uint maxAvaliableCount = _AdditionalLightsCount.z * _LightGridSize.x * _LightGridSize.y * _LightGridSize.z / 8;
+		UNITY_LOOP
+		for(uint i = 0; i < AllLightsCount; ++i)
+		{
+			float4 lightPositionWS = _AdditionalLightsPosition[i];
+			// Spot Light & Point Light
+			if(lightPositionWS.w > 0)
+			{
+				half4 attenuation = _AdditionalLightsAttenuation[i];
+				float invRangeSqr = attenuation.x * _LightGridSize.w;
+				float3 lightPostionViewSpace = mul(UNITY_MATRIX_V, float4(lightPositionWS.xyz, 1)).xyz;
+				float BoxDistanceSq = SquareDistanceFromBoxToPoint(ViewClusterCenter, ViewClusterExtent, lightPostionViewSpace);
+				// 超出范围
+				if(BoxDistanceSq > (1 / invRangeSqr))
+				{
+					continue;
+				}
+				else
+				{
+					// Spot Light
+					if(attenuation.z != 0)
+					{
+						half4 spotDirection = _AdditionalLightsSpotDir[i];
+						float3 SpotDirViewSpace = -mul((float3x3)UNITY_MATRIX_V, spotDirection.xyz);
+						if (IsAabbOutsideInfiniteAcuteConeApprox(lightPostionViewSpace, SpotDirViewSpace, spotDirection.w, ViewClusterCenter, ViewClusterExtent))
+						{
+							continue;
+						}
+					}
+				}
+			}
+
+#ifdef USE_LINKED_CULL_LIST
+			uint NextLink;
+			InterlockedAdd(_RWNextCulledLightLink[0], 1U, NextLink);
+			if (NextLink < maxAvaliableCount)
+			{
+				uint PreviousLink;
+				InterlockedExchange(_RWStartOffsetGrid[GridIndex], NextLink, PreviousLink);
+				_RWCulledLightLinks[NextLink * 2 + 0] = i;
+				_RWCulledLightLinks[NextLink * 2 + 1] = PreviousLink;
+			}
+		}
+#else
+			uint step = ClusterLightCount >> 2; // ClusterLightCount / 4 = step
+			uint index = GridIndex * maxValueCount + step;
+			_RWCulledLightDataGrid[index] = (step * 4 == ClusterLightCount) ? 0 : _RWCulledLightDataGrid[index];
+			_RWCulledLightDataGrid[index] |= (i << (24 - (ClusterLightCount - step * 4) * 8));
+			ClusterLightCount++;
+			if(ClusterLightCount == maxLightsPerCluster) break;
+		}
+		_RWNumCulledLightsGrid[GridIndex] = ClusterLightCount;
+#endif
+	}
+}
+
+
+[numthreads(4, 4, 4)]
+void LightGridCompactCS(uint3 id: SV_DispatchThreadID)
+{
+	if(all(id < _LightGridSize))
+	{
+		uint GridIndex = (id.z * _LightGridSize.y + id.y) * _LightGridSize.x + id.x;
+		
+		uint NumCulledLights = 0;
+		uint StartLinkOffset = _RWStartOffsetGrid[GridIndex];
+		uint LinkOffset = StartLinkOffset;
+		uint CulledLightDataStart = 0;
+		while( LinkOffset != 0xFFFFFFFF && NumCulledLights < _AdditionalLightsCount.y)
+		{
+			NumCulledLights++;
+			LinkOffset = _RWCulledLightLinks[LinkOffset * 2 + 1];
+		}
+
+		InterlockedAdd(_RWNextCulledLightData[0], NumCulledLights, CulledLightDataStart);
+		
+		_RWNumCulledLightsGrid[GridIndex * 2 + 0] = NumCulledLights; 
+		_RWNumCulledLightsGrid[GridIndex * 2 + 1] = CulledLightDataStart;
+
+		LinkOffset = StartLinkOffset;
+		uint CulledLightIndex = 0;
+
+		while (LinkOffset != 0xFFFFFFFF && CulledLightIndex < NumCulledLights)
+		{
+			// Reverse the order as we write them out, which restores the original order before the reverse linked list was built
+			_RWCulledLightDataGrid[CulledLightDataStart + NumCulledLights - CulledLightIndex - 1] = _RWCulledLightLinks[LinkOffset * 2 + 0];
+			CulledLightIndex++;
+			LinkOffset = _RWCulledLightLinks[LinkOffset * 2 + 1];
+		}
+	}
+}
+ 
+[numthreads(1, 1, 1)]
+void ClearLink()
+{
+	_RWNextCulledLightLink[0] = 0;
+	_RWNextCulledLightData[0] = 0;
+}
+
+[numthreads(4, 4, 4)]
+void ClearStartOffsetGrid(uint3 id : SV_DispatchThreadID)
+{
+	if(all(id < _LightGridSize))
+	{
+		uint GridIndex = (id.z * _LightGridSize.y + id.y) * _LightGridSize.x + id.x;
+		_RWStartOffsetGrid[GridIndex] = 0xFFFFFFFF;
+	}
+}

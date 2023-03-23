@@ -1,5 +1,7 @@
 using UnityEngine.Experimental.GlobalIllumination;
 using Unity.Collections;
+// using System;
+// using UnityEngine.Experimental.Rendering;
 
 namespace UnityEngine.Rendering.Universal.Internal
 {
@@ -45,6 +47,9 @@ namespace UnityEngine.Rendering.Universal.Internal
         Vector4[] m_AdditionalLightSpotDirections;
         Vector4[] m_AdditionalLightOcclusionProbeChannels;
 
+        private ComputeBuffer _numCulled, _lightData;
+        private ComputeBuffer _nextCulledLightLink, _nextCulledLightData, _startOffsetLink, _culledLightLinks;
+
         bool m_UseStructuredBuffer;
         
         public ForwardLights()
@@ -77,22 +82,160 @@ namespace UnityEngine.Rendering.Universal.Internal
             }
         }
 
-        public void Setup(ScriptableRenderContext context, ref RenderingData renderingData)
+        public void Setup(ScriptableRenderContext context, ref RenderingData renderingData, ComputeShader lightGridComputer)
         {
             int additionalLightsCount = renderingData.lightData.additionalLightsCount;
-            bool additionalLightsPerVertex = renderingData.lightData.shadeAdditionalLightsPerVertex;
+#if UNITY_ANDROID || UNITY_IOS
+            if (renderingData.lightData.shadeAdditionalLightsMode == LightRenderingMode.ForwardPlusLinkedList)
+            {
+                renderingData.lightData.shadeAdditionalLightsMode = LightRenderingMode.ForwardPlus;
+            }
+#endif
+            LightRenderingMode additionalLightsMode = renderingData.lightData.shadeAdditionalLightsMode;
+            if ((lightGridComputer == null || !SystemInfo.supportsComputeShaders) &&
+                (additionalLightsMode == LightRenderingMode.ForwardPlus || additionalLightsMode == LightRenderingMode.ForwardPlusLinkedList))
+            {
+                additionalLightsMode = LightRenderingMode.PerPixel;
+            }
             CommandBuffer cmd = CommandBufferPool.Get(k_SetupLightConstants);
             SetupShaderLightConstants(cmd, ref renderingData);
 
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.AdditionalLightsVertex,
-                additionalLightsCount > 0 && additionalLightsPerVertex);
+                additionalLightsCount > 0 && additionalLightsMode == LightRenderingMode.PerVertex);
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.AdditionalLightsPixel,
-                additionalLightsCount > 0 && !additionalLightsPerVertex);
+                additionalLightsCount > 0 && additionalLightsMode == LightRenderingMode.PerPixel);
+            CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.AdditionalLightsForwardPlus,
+                additionalLightsCount > 0 && (additionalLightsMode == LightRenderingMode.ForwardPlus || additionalLightsMode == LightRenderingMode.ForwardPlusLinkedList));
             CoreUtils.SetKeyword(cmd, ShaderKeywordStrings.MixedLightingSubtractive,
                 renderingData.lightData.supportsMixedLighting &&
                 m_MixedLightingSetup == MixedLightingSetup.Subtractive);
+            if (additionalLightsMode == LightRenderingMode.ForwardPlus || additionalLightsMode == LightRenderingMode.ForwardPlusLinkedList)
+            {
+                SetupLightGridCompute(cmd, lightGridComputer, renderingData);
+            }
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
+        }
+
+        private static int LIGHT_GRID_PIXEL_SIZE = 64;
+        private static int LIGHT_GRID_DEPTH = 32;
+        private static float LIGHT_NEAR_PLANE_OFFSET = .095f;
+        private static float LIGHT_MAX_FAR_PLANE = 500.0f;
+
+        Vector4 GetLightGridZParams(float NearPlane, float FarPlane, int GLightGridSizeZ)
+        {
+            // S = distribution scale
+            // B, O are solved for given the z distances of the first+last slice, and the # of slices.
+            //
+            // slice = log2(z*B + O) * S
+
+            // Don't spend lots of resolution right in front of the near plane
+            float NearOffset = LIGHT_NEAR_PLANE_OFFSET;
+            // Space out the slices so they aren't all clustered at the near plane
+            float S = 4.05f;
+
+            float N = NearPlane + NearOffset;
+            float F = Mathf.Min(FarPlane, LIGHT_MAX_FAR_PLANE);
+
+            float O = (F - N * Mathf.Pow(2.0f, (GLightGridSizeZ) / S)) / (F - N);
+            float B = (1 - O) / N;
+
+            return new Vector4(B, O, S, NearPlane);
+        }
+
+        public static readonly int lightGridSize = Shader.PropertyToID("_LightGridSize");
+        public static readonly int lightGridZParams = Shader.PropertyToID("_LightGridZParams");
+        public static readonly int rwNumCulledLightsGrid = Shader.PropertyToID("_RWNumCulledLightsGrid");
+        public static readonly int rwCulledLightDataGrid = Shader.PropertyToID("_RWCulledLightDataGrid");
+        public static readonly int rwNextCulledLightLink = Shader.PropertyToID("_RWNextCulledLightLink");
+        public static readonly int rwNextCulledLightData = Shader.PropertyToID("_RWNextCulledLightData");
+        public static readonly int rwStartOffsetGrid = Shader.PropertyToID("_RWStartOffsetGrid");
+        public static readonly int rwCulledLightLinks = Shader.PropertyToID("_RWCulledLightLinks");
+        
+        public static readonly int numCulledLightsGrid = Shader.PropertyToID("_NumCulledLightsGrid");
+        public static readonly int culledLightDataGrid = Shader.PropertyToID("_CulledLightDataGrid");
+
+        void EnsureComputeBuffer(ref ComputeBuffer cb, int size)
+        {
+            if (cb == null || cb.count != size)
+            {
+                if (cb != null)
+                {
+                    cb.Release();
+                }
+                cb = new ComputeBuffer(size, 4, ComputeBufferType.Default);
+            }
+        }
+
+        int MaxAdditionalLightsCount(LightData lightData)
+        {
+            // 必须是4的整数倍
+            return (Mathf.Max(Mathf.Min(lightData.additionalLightsCount, lightData.maxPerClusterAdditionalLightsCount), 4) + 3) / 4 * 4;
+        }
+
+        void SetupLightGridCompute(CommandBuffer cmd, ComputeShader compute, RenderingData renderingData)
+        {
+            var gridSize = new Vector3Int((renderingData.cameraData.pixelWidth + LIGHT_GRID_PIXEL_SIZE - 1) / LIGHT_GRID_PIXEL_SIZE,
+                (renderingData.cameraData.pixelHeight + LIGHT_GRID_PIXEL_SIZE - 1) / LIGHT_GRID_PIXEL_SIZE, LIGHT_GRID_DEPTH);
+            var allSize = gridSize.x * gridSize.y * gridSize.z;
+            var maxLightsCount = MaxAdditionalLightsCount(renderingData.lightData);
+            
+            if (renderingData.lightData.shadeAdditionalLightsMode == LightRenderingMode.ForwardPlusLinkedList)
+            {
+                // 需要保存起点，和个数大小
+                EnsureComputeBuffer(ref _numCulled, allSize * 2); 
+                // 链表下总的节点个数上限
+                EnsureComputeBuffer(ref _lightData, allSize * maxLightsCount / 8);
+                EnsureComputeBuffer(ref _nextCulledLightLink, 1);
+                EnsureComputeBuffer(ref _nextCulledLightData, 1);
+                EnsureComputeBuffer(ref _startOffsetLink, allSize);
+                //链表下总的节点个数上限 * 2
+                EnsureComputeBuffer(ref _culledLightLinks, allSize * maxLightsCount / 4);
+            }
+            else
+            {
+                EnsureComputeBuffer(ref _numCulled, allSize);
+                // 每个int保存4个光照索引，每个光照索引占用8位，光照总个数不能超过256
+                EnsureComputeBuffer(ref _lightData, allSize * maxLightsCount / 4);
+            }
+
+            bool fastAttenuation = Application.isMobilePlatform || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Switch;
+            cmd.SetGlobalVector(lightGridSize, new Vector4(gridSize.x, gridSize.y, gridSize.z, fastAttenuation ? -0.36f : 1.0f)); // (0.8f * 0.8f - 1.0f) = -0.36f
+            Camera camera = renderingData.cameraData.camera;
+            var lightGridZParamsData = GetLightGridZParams(camera.nearClipPlane, camera.farClipPlane, gridSize.z);
+            cmd.SetGlobalVector(lightGridZParams, lightGridZParamsData);
+            Vector3Int threadGroupSize = new Vector3Int((gridSize.x + 3) / 4, (gridSize.y + 3) / 4, (gridSize.z + 3) / 4);
+            if (renderingData.lightData.shadeAdditionalLightsMode == LightRenderingMode.ForwardPlus)
+            {
+                cmd.SetComputeBufferParam(compute, 0, rwNumCulledLightsGrid, _numCulled);
+                cmd.SetComputeBufferParam(compute, 0, rwCulledLightDataGrid, _lightData);   
+                cmd.DispatchCompute(compute, 0, threadGroupSize.x, threadGroupSize.y, threadGroupSize.z);
+            }
+            else
+            {
+                cmd.SetComputeBufferParam(compute, 1, rwStartOffsetGrid, _startOffsetLink);
+                cmd.DispatchCompute(compute, 1, threadGroupSize.x, threadGroupSize.y, threadGroupSize.z);
+                
+                cmd.SetComputeBufferParam(compute, 2, rwNextCulledLightLink, _nextCulledLightLink);
+                cmd.SetComputeBufferParam(compute, 2, rwNextCulledLightData, _nextCulledLightData);
+                cmd.DispatchCompute(compute, 2, 1,1 ,1);
+                
+                cmd.SetComputeBufferParam(compute, 3, rwNextCulledLightLink, _nextCulledLightLink);
+                cmd.SetComputeBufferParam(compute, 3, rwStartOffsetGrid, _startOffsetLink);
+                cmd.SetComputeBufferParam(compute, 3, rwCulledLightLinks, _culledLightLinks);
+                cmd.DispatchCompute(compute, 3, threadGroupSize.x, threadGroupSize.y, threadGroupSize.z);
+                
+                cmd.SetComputeBufferParam(compute, 4, rwCulledLightLinks, _culledLightLinks);
+                cmd.SetComputeBufferParam(compute, 4, rwStartOffsetGrid, _startOffsetLink);
+                cmd.SetComputeBufferParam(compute, 4, rwNextCulledLightData, _nextCulledLightData);
+                cmd.SetComputeBufferParam(compute, 4, rwCulledLightDataGrid, _lightData);
+                cmd.SetComputeBufferParam(compute, 4, rwNumCulledLightsGrid, _numCulled);
+                
+                cmd.DispatchCompute(compute, 4, threadGroupSize.x, threadGroupSize.y, threadGroupSize.z);
+            }
+           
+            cmd.SetGlobalBuffer(numCulledLightsGrid, _numCulled);
+            cmd.SetGlobalBuffer(culledLightDataGrid, _lightData);
         }
 
         void InitializeLightConstants(NativeArray<VisibleLight> lights, int lightIndex, out Vector4 lightPos, out Vector4 lightColor, out Vector4 lightAttenuation, out Vector4 lightSpotDir, out Vector4 lightOcclusionProbeChannel)
@@ -157,13 +300,16 @@ namespace UnityEngine.Rendering.Universal.Internal
                 Vector4 dir = lightData.localToWorldMatrix.GetColumn(2);
                 lightSpotDir = new Vector4(-dir.x, -dir.y, -dir.z, 0.0f);
 
+                float lightAngle = Mathf.Deg2Rad * lightData.spotAngle * 0.5f;
+                lightSpotDir.w = Mathf.Tan(lightAngle);
+
                 // Spot Attenuation with a linear falloff can be defined as
                 // (SdotL - cosOuterAngle) / (cosInnerAngle - cosOuterAngle)
                 // This can be rewritten as
                 // invAngleRange = 1.0 / (cosInnerAngle - cosOuterAngle)
                 // SdotL * invAngleRange + (-cosOuterAngle * invAngleRange)
                 // If we precompute the terms in a MAD instruction
-                float cosOuterAngle = Mathf.Cos(Mathf.Deg2Rad * lightData.spotAngle * 0.5f);
+                float cosOuterAngle = Mathf.Cos(lightAngle);
                 // We neeed to do a null check for particle lights
                 // This should be changed in the future
                 // Particle lights will use an inline function
@@ -280,8 +426,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                     cmd.SetGlobalVectorArray(LightConstantBuffer._AdditionalLightOcclusionProbeChannel, m_AdditionalLightOcclusionProbeChannels);
                 }
 
-                cmd.SetGlobalVector(LightConstantBuffer._AdditionalLightsCount, new Vector4(lightData.maxPerObjectAdditionalLightsCount,
-                    0.0f, 0.0f, 0.0f));
+                cmd.SetGlobalVector(LightConstantBuffer._AdditionalLightsCount, 
+                    new Vector4(lightData.maxPerObjectAdditionalLightsCount, lightData.additionalLightsCount, MaxAdditionalLightsCount(lightData), lightData.shadeAdditionalLightsMode == LightRenderingMode.ForwardPlusLinkedList ? 1 : 0));
             }
             else
             {

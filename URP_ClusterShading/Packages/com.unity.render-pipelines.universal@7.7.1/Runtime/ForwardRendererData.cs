@@ -48,6 +48,9 @@ namespace UnityEngine.Rendering.Universal
 
             [Reload("Shaders/Utils/FallbackError.shader")]
             public Shader fallbackErrorPS;
+
+            [Reload("Shaders/LightGrid.compute")]
+            public ComputeShader lightGridCS;
         }
 
         [Reload("Runtime/Data/PostProcessData.asset")]

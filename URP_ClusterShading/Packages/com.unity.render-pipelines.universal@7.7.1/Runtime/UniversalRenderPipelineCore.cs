@@ -39,8 +39,9 @@ namespace UnityEngine.Rendering.Universal
         public int mainLightIndex;
         public int additionalLightsCount;
         public int maxPerObjectAdditionalLightsCount;
+        public int maxPerClusterAdditionalLightsCount;
         public NativeArray<VisibleLight> visibleLights;
-        public bool shadeAdditionalLightsPerVertex;
+        public LightRenderingMode shadeAdditionalLightsMode;
         public bool supportsMixedLighting;
     }
 
@@ -196,8 +197,7 @@ namespace UnityEngine.Rendering.Universal
         public static readonly int viewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixVP");
 
         public static readonly int inverseViewMatrix = Shader.PropertyToID("unity_MatrixInvV");
-        // Undefined:
-        // public static readonly int inverseProjectionMatrix = Shader.PropertyToID("unity_MatrixInvP");
+        public static readonly int inverseProjectionMatrix = Shader.PropertyToID("unity_MatrixInvP");
         public static readonly int inverseViewAndProjectionMatrix = Shader.PropertyToID("unity_MatrixInvVP");
 
         public static readonly int cameraProjectionMatrix = Shader.PropertyToID("unity_CameraProjection");
@@ -218,6 +218,7 @@ namespace UnityEngine.Rendering.Universal
         public static readonly string MainLightShadowCascades = "_MAIN_LIGHT_SHADOWS_CASCADE";
         public static readonly string AdditionalLightsVertex = "_ADDITIONAL_LIGHTS_VERTEX";
         public static readonly string AdditionalLightsPixel = "_ADDITIONAL_LIGHTS";
+        public static readonly string AdditionalLightsForwardPlus = "_ADDITIONAL_LIGHTS_FORWARD_PLUS";
         public static readonly string AdditionalLightShadows = "_ADDITIONAL_LIGHT_SHADOWS";
         public static readonly string SoftShadows = "_SHADOWS_SOFT";
         public static readonly string MixedLightingSubtractive = "_MIXED_LIGHTING_SUBTRACTIVE";

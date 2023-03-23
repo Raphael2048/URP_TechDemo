@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Rendering;
 using UnityEngine.Scripting.APIUpdating;
@@ -45,6 +45,7 @@ namespace UnityEditor.Rendering.Universal
             // Additional lights
             public static GUIContent addditionalLightsRenderingModeText = EditorGUIUtility.TrTextContent("Additional Lights", "Additional lights support.");
             public static GUIContent perObjectLimit = EditorGUIUtility.TrTextContent("Per Object Limit", "Maximum amount of additional lights. These lights are sorted and culled per-object.");
+            public static GUIContent perClusterLimit = EditorGUIUtility.TrTextContent("Per Cluster Limit", "Maximum amount of additional lights. These lights are culled per-Cluster.");
             public static GUIContent supportsAdditionalShadowsText = EditorGUIUtility.TrTextContent("Cast Shadows", "If enabled shadows will be supported for spot lights.\n");
             public static GUIContent additionalLightsShadowmapResolution = EditorGUIUtility.TrTextContent("Shadow Resolution", "All additional lights are packed into a single shadowmap atlas. This setting controls the atlas size.");
 
@@ -118,6 +119,7 @@ namespace UnityEditor.Rendering.Universal
 
         SerializedProperty m_AdditionalLightsRenderingModeProp;
         SerializedProperty m_AdditionalLightsPerObjectLimitProp;
+        SerializedProperty m_AdditionalLightsPerClusterLimitProp;
         SerializedProperty m_AdditionalLightShadowsSupportedProp;
         SerializedProperty m_AdditionalLightShadowmapResolutionProp;
 
@@ -192,6 +194,7 @@ namespace UnityEditor.Rendering.Universal
 
             m_AdditionalLightsRenderingModeProp = serializedObject.FindProperty("m_AdditionalLightsRenderingMode");
             m_AdditionalLightsPerObjectLimitProp = serializedObject.FindProperty("m_AdditionalLightsPerObjectLimit");
+            m_AdditionalLightsPerClusterLimitProp = serializedObject.FindProperty("m_AdditionalLightsPerClusterLimit");
             m_AdditionalLightShadowsSupportedProp = serializedObject.FindProperty("m_AdditionalLightShadowsSupported");
             m_AdditionalLightShadowmapResolutionProp = serializedObject.FindProperty("m_AdditionalLightsShadowmapResolution");
 
@@ -310,7 +313,13 @@ namespace UnityEditor.Rendering.Universal
                 m_AdditionalLightsPerObjectLimitProp.intValue = EditorGUILayout.IntSlider(Styles.perObjectLimit, m_AdditionalLightsPerObjectLimitProp.intValue, 0, UniversalRenderPipeline.maxPerObjectLights);
                 EditorGUI.EndDisabledGroup();
 
-                disableGroup |= (m_AdditionalLightsPerObjectLimitProp.intValue == 0 || m_AdditionalLightsRenderingModeProp.intValue != (int)LightRenderingMode.PerPixel);
+                disableGroup = m_AdditionalLightsRenderingModeProp.intValue < (int)LightRenderingMode.ForwardPlus;
+                EditorGUI.BeginDisabledGroup(disableGroup);
+                m_AdditionalLightsPerClusterLimitProp.intValue = EditorGUILayout.IntSlider(Styles.perClusterLimit, m_AdditionalLightsPerClusterLimitProp.intValue, 4, UniversalRenderPipeline.maxVisibleAdditionalLights / 4);
+                m_AdditionalLightsPerClusterLimitProp.intValue = m_AdditionalLightsPerClusterLimitProp.intValue / 4 * 4;
+                EditorGUI.EndDisabledGroup();
+
+                disableGroup = m_AdditionalLightsRenderingModeProp.intValue == (int)LightRenderingMode.PerVertex || m_AdditionalLightsRenderingModeProp.intValue == (int)LightRenderingMode.Disabled;
                 EditorGUI.BeginDisabledGroup(disableGroup);
                 EditorGUILayout.PropertyField(m_AdditionalLightShadowsSupportedProp, Styles.supportsAdditionalShadowsText);
                 EditorGUI.EndDisabledGroup();

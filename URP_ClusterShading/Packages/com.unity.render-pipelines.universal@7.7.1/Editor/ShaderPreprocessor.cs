@@ -20,7 +20,8 @@ namespace UnityEditor.Rendering.Universal
         VertexLighting = (1 << 4),
         SoftShadows = (1 << 5),
         MixedLighting = (1 << 6),
-        TerrainHoles = (1 << 7)
+        TerrainHoles = (1 << 7),
+        AdditionalLightsForwardPlus = (1 << 8),
     }
     internal class ShaderPreprocessor : IPreprocessShaders
     {
@@ -32,6 +33,7 @@ namespace UnityEditor.Rendering.Universal
         ShaderKeyword m_MainLightShadows = new ShaderKeyword(ShaderKeywordStrings.MainLightShadows);
         ShaderKeyword m_AdditionalLightsVertex = new ShaderKeyword(ShaderKeywordStrings.AdditionalLightsVertex);
         ShaderKeyword m_AdditionalLightsPixel = new ShaderKeyword(ShaderKeywordStrings.AdditionalLightsPixel);
+        ShaderKeyword m_AdditionalLightsForwardPlus = new ShaderKeyword(ShaderKeywordStrings.AdditionalLightsForwardPlus);
         ShaderKeyword m_AdditionalLightShadows = new ShaderKeyword(ShaderKeywordStrings.AdditionalLightShadows);
         ShaderKeyword m_CascadeShadows = new ShaderKeyword(ShaderKeywordStrings.MainLightShadowCascades);
         ShaderKeyword m_SoftShadows = new ShaderKeyword(ShaderKeywordStrings.SoftShadows);
@@ -93,8 +95,10 @@ namespace UnityEditor.Rendering.Universal
             // Additional light are shaded per-vertex or per-pixel.
             bool isFeaturePerPixelLightingEnabled = IsFeatureEnabled(features, ShaderFeatures.AdditionalLights);
             bool isFeaturePerVertexLightingEnabled = IsFeatureEnabled(features, ShaderFeatures.VertexLighting);
+            bool isFratureForwardPlusLightingEnabled = IsFeatureEnabled(features, ShaderFeatures.AdditionalLightsForwardPlus);
             bool isAdditionalLightPerPixel = compilerData.shaderKeywordSet.IsEnabled(m_AdditionalLightsPixel);
             bool isAdditionalLightPerVertex = compilerData.shaderKeywordSet.IsEnabled(m_AdditionalLightsVertex);
+            bool isAdditionalLightForwardPlus = compilerData.shaderKeywordSet.IsEnabled(m_AdditionalLightsForwardPlus);
 
             // Strip if Per-Pixel lighting is NOT used in the project and the
             // Per-Pixel (_ADDITIONAL_LIGHTS) or additional shadows (_ADDITIONAL_LIGHT_SHADOWS)
@@ -105,6 +109,9 @@ namespace UnityEditor.Rendering.Universal
             // Strip if Per-Vertex lighting is NOT used in the project and the
             // Per-Vertex (_ADDITIONAL_LIGHTS_VERTEX) variant is enabled in the shader.
             if (!isFeaturePerVertexLightingEnabled && isAdditionalLightPerVertex)
+                return true;
+
+            if (!isFratureForwardPlusLightingEnabled && isAdditionalLightForwardPlus)
                 return true;
 
             return false;
@@ -297,6 +304,10 @@ namespace UnityEditor.Rendering.Universal
 
                 if (pipelineAsset.supportsAdditionalLightShadows)
                     shaderFeatures |= ShaderFeatures.AdditionalLightShadows;
+            }
+            else if (pipelineAsset.additionalLightsRenderingMode == LightRenderingMode.ForwardPlus || pipelineAsset.additionalLightsRenderingMode == LightRenderingMode.ForwardPlusLinkedList)
+            {
+                shaderFeatures |= ShaderFeatures.AdditionalLightsForwardPlus;
             }
 
             bool anyShadows = pipelineAsset.supportsMainLightShadows ||

@@ -8,7 +8,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ShaderTypes.cs.hlsl"
 
 #if defined(SHADER_API_MOBILE) || (defined(SHADER_API_GLCORE) && !defined(SHADER_API_SWITCH)) || defined(SHADER_API_GLES) || defined(SHADER_API_GLES3) // Workaround for bug on Nintendo Switch where SHADER_API_GLCORE is mistakenly defined
-    #define MAX_VISIBLE_LIGHTS 32
+    #define MAX_VISIBLE_LIGHTS 64
 #else
     #define MAX_VISIBLE_LIGHTS 256
 #endif
@@ -22,6 +22,9 @@ struct InputData
     half    fogCoord;
     half3   vertexLighting;
     half3   bakedGI;
+#ifdef _ADDITIONAL_LIGHTS_FORWARD_PLUS
+    float4  positionCS;
+#endif
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -37,7 +40,11 @@ float4 _ScaledScreenParams;
 float4 _MainLightPosition;
 half4 _MainLightColor;
 
-half4 _AdditionalLightsCount;
+// X: PerPixelLight MaxLightPerObject
+// Y: AdditionalLightsCount
+// Z: ForwardPlus MaxLightsCountPerCluster
+// W: 1:Use LinkedList ForwardPlus 0: Use Array ForwardPlus
+float4 _AdditionalLightsCount;
 #if USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA
 StructuredBuffer<LightData> _AdditionalLightsBuffer;
 StructuredBuffer<int> _AdditionalLightsIndices;
@@ -48,8 +55,8 @@ CBUFFER_START(AdditionalLights)
 #endif
 float4 _AdditionalLightsPosition[MAX_VISIBLE_LIGHTS];
 half4 _AdditionalLightsColor[MAX_VISIBLE_LIGHTS];
-half4 _AdditionalLightsAttenuation[MAX_VISIBLE_LIGHTS];
-half4 _AdditionalLightsSpotDir[MAX_VISIBLE_LIGHTS];
+float4 _AdditionalLightsAttenuation[MAX_VISIBLE_LIGHTS];
+float4 _AdditionalLightsSpotDir[MAX_VISIBLE_LIGHTS];
 half4 _AdditionalLightsOcclusionProbes[MAX_VISIBLE_LIGHTS];
 #ifndef SHADER_API_GLES3
 CBUFFER_END
@@ -61,7 +68,7 @@ CBUFFER_END
 #define UNITY_MATRIX_V     unity_MatrixV
 #define UNITY_MATRIX_I_V   unity_MatrixInvV
 #define UNITY_MATRIX_P     OptimizeProjectionMatrix(glstate_matrix_projection)
-#define UNITY_MATRIX_I_P   ERROR_UNITY_MATRIX_I_P_IS_NOT_DEFINED
+#define UNITY_MATRIX_I_P   unity_MatrixInvP
 #define UNITY_MATRIX_VP    unity_MatrixVP
 #define UNITY_MATRIX_I_VP  unity_MatrixInvVP
 #define UNITY_MATRIX_MV    mul(UNITY_MATRIX_V, UNITY_MATRIX_M)

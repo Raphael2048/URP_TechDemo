@@ -73,6 +73,8 @@ namespace UnityEngine.Rendering.Universal
         Disabled = 0,
         PerVertex = 2,
         PerPixel = 1,
+        ForwardPlus = 3,
+        ForwardPlusLinkedList = 4,
     }
 
     [MovedFrom("UnityEngine.Rendering.LWRP")] public enum ShaderVariantLogLevel
@@ -174,6 +176,7 @@ namespace UnityEngine.Rendering.Universal
         // Additional lights settings
         [SerializeField] LightRenderingMode m_AdditionalLightsRenderingMode = LightRenderingMode.PerPixel;
         [SerializeField] int m_AdditionalLightsPerObjectLimit = 4;
+        [SerializeField] int m_AdditionalLightsPerClusterLimit = 8;
         [SerializeField] bool m_AdditionalLightShadowsSupported = false;
         [SerializeField] ShadowResolution m_AdditionalLightsShadowmapResolution = ShadowResolution._512;
 
@@ -593,6 +596,12 @@ namespace UnityEngine.Rendering.Universal
             set { m_AdditionalLightsPerObjectLimit = ValidatePerObjectLights(value); }
         }
 
+        public int maxPerClusterAdditionalLightsCount
+        {
+            get { return m_AdditionalLightsPerClusterLimit; }
+            set { m_AdditionalLightsPerClusterLimit = ValidatePerClusterLights(value); }
+        }
+
         public bool supportsAdditionalLightShadows
         {
             get { return m_AdditionalLightShadowsSupported; }
@@ -908,6 +917,11 @@ namespace UnityEngine.Rendering.Universal
         int ValidatePerObjectLights(int value)
         {
             return System.Math.Max(0, System.Math.Min(value, UniversalRenderPipeline.maxPerObjectLights));
+        }
+
+        int ValidatePerClusterLights(int value)
+        {
+            return System.Math.Max(4, System.Math.Min(value, UniversalRenderPipeline.maxVisibleAdditionalLights)) / 4 * 4;
         }
 
         float ValidateRenderScale(float value)
