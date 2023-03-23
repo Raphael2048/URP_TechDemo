@@ -63,6 +63,8 @@ namespace UnityEngine.Rendering.Universal
         CopyDepthPass m_PrimedDepthCopyPass;
         MotionVectorRenderPass m_MotionVectorPass;
         MainLightShadowCasterPass m_MainLightShadowCasterPass;
+        MainLightTransparentShadowColorPass m_MainLightTransparentShadowColorPass;
+        MainLightModulatedShadowPass m_MainLightModulatedShadowPass;
         AdditionalLightsShadowCasterPass m_AdditionalLightsShadowCasterPass;
         GBufferPass m_GBufferPass;
         CopyDepthPass m_GBufferCopyDepthPass;
@@ -118,6 +120,7 @@ namespace UnityEngine.Rendering.Universal
         Material m_StencilDeferredMaterial = null;
         Material m_CameraMotionVecMaterial = null;
         Material m_ObjectMotionVecMaterial = null;
+        Material m_ProjectionShadowMaterial = null;
 
         PostProcessPasses m_PostProcessPasses;
         internal ColorGradingLutPass colorGradingLutPass { get => m_PostProcessPasses.colorGradingLutPass; }
@@ -143,7 +146,8 @@ namespace UnityEngine.Rendering.Universal
             m_StencilDeferredMaterial = CoreUtils.CreateEngineMaterial(data.shaders.stencilDeferredPS);
             m_CameraMotionVecMaterial = CoreUtils.CreateEngineMaterial(data.shaders.cameraMotionVector);
             m_ObjectMotionVecMaterial = CoreUtils.CreateEngineMaterial(data.shaders.objectMotionVector);
-
+            m_ProjectionShadowMaterial = CoreUtils.CreateEngineMaterial(data.shaders.projectionShadowPS);
+            
             StencilStateData stencilData = data.defaultStencilState;
             m_DefaultStencilState = StencilState.defaultValue;
             m_DefaultStencilState.enabled = stencilData.overrideStencilState;
@@ -187,7 +191,10 @@ namespace UnityEngine.Rendering.Universal
 
             // Note: Since all custom render passes inject first and we have stable sort,
             // we inject the builtin passes in the before events.
-            m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
+            m_MainLightShadowCasterPass = new MainLightShadowCasterPass(RenderPassEvent.BeforeRenderingShadows, m_ProjectionShadowMaterial);
+            m_MainLightTransparentShadowColorPass =
+                new MainLightTransparentShadowColorPass(RenderPassEvent.BeforeRenderingShadows);
+            m_MainLightModulatedShadowPass = new MainLightModulatedShadowPass(RenderPassEvent.BeforeRenderingTransparents, m_ProjectionShadowMaterial);
             m_AdditionalLightsShadowCasterPass = new AdditionalLightsShadowCasterPass(RenderPassEvent.BeforeRenderingShadows);
 
 #if ENABLE_VR && ENABLE_XR_MODULE
@@ -347,7 +354,7 @@ namespace UnityEngine.Rendering.Universal
                         }
                         case DebugFullScreenMode.MainLightShadowMap:
                         {
-                            DebugHandler.SetDebugRenderTarget(m_MainLightShadowCasterPass.m_MainLightShadowmapTexture, normalizedRect, false);
+                            DebugHandler.SetDebugRenderTarget(m_MainLightShadowCasterPass.m_MainLightShadowmap.Identifier(), normalizedRect, false);
                             break;
                         }
                         default:
@@ -442,6 +449,8 @@ namespace UnityEngine.Rendering.Universal
 #endif
 
             bool mainLightShadows = m_MainLightShadowCasterPass.Setup(ref renderingData);
+            bool mainLightTransparentShadow = m_MainLightTransparentShadowColorPass.Setup(ref renderingData);
+            bool mainLightModulatedShadow = renderingData.lightData.mainLightModulatedShadow;
             bool additionalLightShadows = m_AdditionalLightsShadowCasterPass.Setup(ref renderingData);
             bool transparentsNeedSettingsPass = m_TransparentSettingsPass.Setup(ref renderingData);
 
@@ -609,6 +618,12 @@ namespace UnityEngine.Rendering.Universal
 
             if (mainLightShadows)
                 EnqueuePass(m_MainLightShadowCasterPass);
+            
+            if(mainLightTransparentShadow)
+                EnqueuePass(m_MainLightTransparentShadowColorPass);
+            
+            if(mainLightModulatedShadow)
+                EnqueuePass(m_MainLightModulatedShadowPass);
 
             if (additionalLightShadows)
                 EnqueuePass(m_AdditionalLightsShadowCasterPass);

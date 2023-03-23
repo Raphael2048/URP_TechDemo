@@ -67,6 +67,9 @@ namespace UnityEngine.Rendering.Universal
 
             [Reload("Shaders/ObjectMotionVectors.shader")]
             public Shader objectMotionVector;
+            
+            [Reload("Shaders/ProjectionShadow.shader")]
+            public Shader projectionShadowPS;
         }
 
         public PostProcessData postProcessData = null;

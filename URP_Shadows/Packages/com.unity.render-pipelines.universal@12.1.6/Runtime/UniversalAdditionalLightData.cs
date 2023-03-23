@@ -71,6 +71,18 @@ namespace UnityEngine.Rendering.Universal
             get { return m_UsePipelineSettings; }
             set { m_UsePipelineSettings = value; }
         }
+        
+        [SerializeField] public bool useProjectionShadow = false;
+
+        [SerializeField] public bool castModulatedShadow = false;
+        
+        [SerializeField] public bool usePCSSModulatedShadow = false;
+
+        [SerializeField] public Color modulatedShadowColor = Color.grey;
+        [Range(0.1f, 50.0f)]
+        [SerializeField] public float modulatedShadowFilterWidth = 10.0f;
+        
+        [SerializeField] public bool castTransparentShadow = false;
 
         public static readonly int AdditionalLightsShadowResolutionTierCustom = -1;
         public static readonly int AdditionalLightsShadowResolutionTierLow = 0;

@@ -7,6 +7,7 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LightCookie/LightCookie.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Clustering.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProjectionShadowInclude.hlsl"
 
 ///////////////////////////////////////////////////////////////////////////////
 //                             Light Layers                                   /
@@ -163,6 +164,100 @@ Light GetMainLight(InputData inputData, half4 shadowMask, AmbientOcclusionFactor
     }
     #endif
 
+    return light;
+}
+
+Light GetProjectionMainLight(InputData inputData, float Fade = 100)
+{
+    Light light = GetMainLight();
+    if(_H3D_ProjectionShadowParams.x > 0 && _MainLightShadowParams.w > 0)
+    {
+        float3 ShadowPos = inputData.positionWS + GetMainLightShadowPosOffset(dot(inputData.normalWS, light.direction), inputData.normalWS, light.direction);
+        float3 shadowCoord = mul(_MainLightWorldToShadow[0], float4(ShadowPos, 1)).xyz;
+        ShadowSettings Settings;
+        Settings.Shadowmap = _MainLightShadowmapTexture;
+        Settings.ShadowmapSampler = sampler_PointClamp;
+        Settings.ShadowmapTexelSize = _MainLightShadowmapSize;
+        Settings.SceneDepth = shadowCoord.z;
+        Settings.Fade = Fade;
+        Settings.Subsurface = false;
+        Settings.ShadowPosition = shadowCoord.xy;
+        light.shadowAttenuation = Manual6x6PCF(Settings);
+        light.shadowAttenuation = lerp(1, light.shadowAttenuation, _MainLightShadowParams.x);
+        //只有不透明物体，才会有半透明阴影
+        #if !defined(_SURFACE_TYPE_TRANSPARENT)
+        float2 TransparentColorCoord = mul(_MainLightWorldToShadow[0], float4(inputData.positionWS, 1)).xy;
+        light.shadowAttenuation *= TransparentSelfShaodwIntensity(TransparentColorCoord);
+        #endif
+    }
+    else
+    {
+        light = GetMainLight(inputData.shadowCoord, inputData.positionWS, inputData.shadowMask);
+    }
+    return light;
+}
+
+Light GetProjectionMainLightPoissonDisk(InputData inputData, float width = 2)
+{
+    Light light = GetMainLight();
+    if(_H3D_ProjectionShadowParams.x > 0 && _MainLightShadowParams.w > 0)
+    {
+        float3 ShadowPos = inputData.positionWS + GetMainLightShadowPosOffset(dot(inputData.normalWS, light.direction), inputData.normalWS, light.direction);
+        float3 shadowCoord = mul(_MainLightWorldToShadow[0], float4(ShadowPos, 1)).xyz;
+        PCSSShadowSettings Settings;
+        Settings.Shadowmap = _MainLightShadowmapTexture;
+        Settings.ShadowmapSampler = sampler_MainLightShadowmapTexture;
+        Settings.ShadowmapTexelSize = _MainLightShadowmapSize;
+        Settings.SceneDepth = shadowCoord.z;
+        Settings.ShadowPosition = shadowCoord.xy;
+        Settings.SVPosition = inputData.positionCS.xy;
+        Settings.MaxFilterWidth = width;
+        Settings.UsePCSS = false;
+        Settings.PCSSFading = 0;
+        light.shadowAttenuation = DirectionalPCSS(Settings);
+        light.shadowAttenuation = lerp(1, light.shadowAttenuation, _MainLightShadowParams.x);
+        //只有不透明物体，才会有半透明阴影
+        #if !defined(_SURFACE_TYPE_TRANSPARENT)
+            float2 TransparentColorCoord = mul(_MainLightWorldToShadow[0], float4(inputData.positionWS, 1)).xy;
+            light.shadowAttenuation *= TransparentSelfShaodwIntensity(TransparentColorCoord);
+        #endif
+    }
+    else
+    {
+        light = GetMainLight(inputData.shadowCoord, inputData.positionWS, inputData.shadowMask);
+    }
+    return light;
+}
+
+Light GetProjectionMainLightPCSS(InputData inputData, float width = 2, float fade = 200)
+{
+    Light light = GetMainLight();
+    if(_H3D_ProjectionShadowParams.x > 0 && _MainLightShadowParams.w > 0)
+    {
+        float3 ShadowPos = inputData.positionWS + GetMainLightShadowPosOffset(dot(inputData.normalWS, light.direction), inputData.normalWS, light.direction);
+        float3 shadowCoord = mul(_MainLightWorldToShadow[0], float4(ShadowPos, 1)).xyz;
+        PCSSShadowSettings Settings;
+        Settings.Shadowmap = _MainLightShadowmapTexture;
+        Settings.ShadowmapSampler = sampler_MainLightShadowmapTexture;
+        Settings.ShadowmapTexelSize = _MainLightShadowmapSize;
+        Settings.SceneDepth = shadowCoord.z;
+        Settings.ShadowPosition = shadowCoord.xy;
+        Settings.SVPosition = inputData.positionCS.xy;
+        Settings.MaxFilterWidth = width;
+        Settings.UsePCSS = true;
+        Settings.PCSSFading = fade;
+        light.shadowAttenuation = DirectionalPCSS(Settings);
+        light.shadowAttenuation = lerp(1, light.shadowAttenuation, _MainLightShadowParams.x);
+        //只有不透明物体，才会有半透明阴影
+        #if !defined(_SURFACE_TYPE_TRANSPARENT)
+        float2 TransparentColorCoord = mul(_MainLightWorldToShadow[0], float4(inputData.positionWS, 1)).xy;
+        light.shadowAttenuation *= TransparentSelfShaodwIntensity(TransparentColorCoord);
+        #endif
+    }
+    else
+    {
+        light = GetMainLight(inputData.shadowCoord, inputData.positionWS, inputData.shadowMask);
+    }
     return light;
 }
 

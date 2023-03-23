@@ -7,10 +7,6 @@
 
 TEXTURE2D_X(_BlitTexture);
 TEXTURECUBE(_BlitCubeTexture);
-SamplerState sampler_PointClamp;
-SamplerState sampler_LinearClamp;
-SamplerState sampler_PointRepeat;
-SamplerState sampler_LinearRepeat;
 uniform float4 _BlitScaleBias;
 uniform float4 _BlitScaleBiasRt;
 uniform float _BlitMipLevel;

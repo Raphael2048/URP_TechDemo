@@ -218,6 +218,16 @@ int unity_StereoEyeIndex;
 
 real4 unity_ShadowColor;
 
+
+// ----------------------------------------------------------------------------------
+// Samplers
+
+SAMPLER(sampler_LinearClamp);
+SAMPLER(sampler_LinearRepeat);
+SAMPLER(sampler_PointClamp);
+SAMPLER(sampler_PointRepeat);
+
+
 // ----------------------------------------------------------------------------
 
 // Unity specific

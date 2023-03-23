@@ -318,7 +318,8 @@ namespace UnityEditor.Rendering.Universal
                     using (new EditorGUI.IndentLevelScope())
                     {
                         // Resolution
-                        if (lightType == LightType.Point || lightType == LightType.Spot)
+                        if (lightType == LightType.Point || lightType == LightType.Spot 
+                                                         || (lightType == LightType.Directional && serializedLight.useProjectionShadow.boolValue && serializedLight.settings.light != RenderSettings.sun))
                             DrawShadowsResolutionGUI(serializedLight);
 
                         EditorGUILayout.Slider(serializedLight.settings.shadowsStrength, 0f, 1f, Styles.ShadowStrength);
@@ -329,7 +330,19 @@ namespace UnityEditor.Rendering.Universal
                         // this min bound should match the calculation in SharedLightData::GetNearPlaneMinBound()
                         float nearPlaneMinBound = Mathf.Min(0.01f * serializedLight.settings.range.floatValue, 0.1f);
                         EditorGUILayout.Slider(serializedLight.settings.shadowsNearPlane, nearPlaneMinBound, 10.0f, Styles.ShadowNearPlane);
+                        if (lightType == LightType.Directional)
+                        {
+                            DrawProjectionShadowGUI(serializedLight);
+                            serializedLight.Apply();
+                        }
+                        else
+                        {
+                            serializedLight.useProjectionShadow.boolValue = false;
+                            serializedLight.castModulatedShadow.boolValue = false;
+                            serializedLight.castTransparentShadow.boolValue = false;
+                        }
                     }
+
 
                     if (UniversalRenderPipeline.asset.supportsLightLayers)
                     {
@@ -404,6 +417,47 @@ namespace UnityEditor.Rendering.Universal
                             if (checkScope.changed)
                                 serializedLight.Apply();
                         }
+                    }
+                }
+            }
+        }
+
+        static void DrawProjectionShadowGUI(UniversalRenderPipelineSerializedLight serializedLight)
+        {
+            serializedLight.useProjectionShadow.boolValue = EditorGUILayout.Toggle("Projection Shadow",
+                serializedLight.useProjectionShadow.boolValue);
+            if (serializedLight.useProjectionShadow.boolValue)
+            {
+                using (new EditorGUI.IndentLevelScope())
+                {
+                    if (serializedLight.settings.light != RenderSettings.sun)
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        EditorGUILayout.HelpBox("It's not main light, so you can't use additional projection shadow settings here.", MessageType.Warning);
+                        if (GUILayout.Button("Mark this light as main light",GUILayout.Height(40)))
+                        {
+                            RenderSettings.sun = serializedLight.settings.light;
+                        }
+                        EditorGUILayout.EndHorizontal();
+                    }
+                    else
+                    {
+                        serializedLight.castModulatedShadow.boolValue = EditorGUILayout.Toggle("Cast Modulated Shadow", serializedLight.castModulatedShadow.boolValue);
+                        if (serializedLight.castModulatedShadow.boolValue)
+                        {
+                            serializedLight.usePCSSModulatedShadow.boolValue = 
+                                EditorGUILayout.Toggle("Use PCSS Modulated Shadow", serializedLight.usePCSSModulatedShadow.boolValue);
+                            
+                            serializedLight.modulatedShadowColor.colorValue = 
+                                EditorGUILayout.ColorField("Modulated Shadow Color", serializedLight.modulatedShadowColor.colorValue);
+                            
+                            serializedLight.modulatedShadowFilterWidth.floatValue = 
+                                EditorGUILayout.Slider("Modulated Shadow Filter Width", serializedLight.modulatedShadowFilterWidth.floatValue, 0.1f, 50.0f);
+                        }
+                        
+                        serializedLight.castTransparentShadow.boolValue = 
+                            EditorGUILayout.Toggle("CastTransparentShadow", serializedLight.castTransparentShadow.boolValue);
+                        
                     }
                 }
             }

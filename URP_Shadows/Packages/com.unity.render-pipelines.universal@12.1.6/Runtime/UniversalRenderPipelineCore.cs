@@ -78,6 +78,14 @@ namespace UnityEngine.Rendering.Universal
         /// True if additional lights enabled.
         /// </summary>
         public bool supportsAdditionalLights;
+        
+        // PROJECTION SHADOW SUPPORT
+        public bool[] useProjectionShadow;
+        public bool mainLightModulatedShadow;
+        public bool mainLightUsePCSSModulatedShadow;
+        public Color mainLightModulatedShadowColor;
+        public float mainLightModulatedShaodwFilterWidth;
+        public bool mainLightCastTransparentShadow;
     }
 
     public struct CameraData

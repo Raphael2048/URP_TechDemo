@@ -31,13 +31,6 @@ Varyings VertFullscreenMesh(Attributes input)
     return output;
 }
 
-// ----------------------------------------------------------------------------------
-// Samplers
-
-SAMPLER(sampler_LinearClamp);
-SAMPLER(sampler_LinearRepeat);
-SAMPLER(sampler_PointClamp);
-SAMPLER(sampler_PointRepeat);
 
 // ----------------------------------------------------------------------------------
 // Utility functions

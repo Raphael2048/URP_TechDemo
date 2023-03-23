@@ -1129,6 +1129,32 @@ namespace UnityEngine.Rendering.Universal
             {
                 lightData.originalIndices[i] = i;
             }
+            
+            lightData.mainLightModulatedShadow = false;
+            lightData.mainLightCastTransparentShadow = false;
+            lightData.mainLightUsePCSSModulatedShadow = false;
+            lightData.mainLightModulatedShadowColor = Color.white;
+            lightData.mainLightModulatedShaodwFilterWidth = 0;
+            if (mainLightIndex >= 0)
+            {
+                var additionalLightData =
+                    visibleLights[mainLightIndex].light.GetComponent<UniversalAdditionalLightData>();
+                if (additionalLightData)
+                {
+                    lightData.mainLightModulatedShadow = additionalLightData.castModulatedShadow;
+                    lightData.mainLightCastTransparentShadow = additionalLightData.castTransparentShadow;
+                    lightData.mainLightUsePCSSModulatedShadow = additionalLightData.usePCSSModulatedShadow;
+                    lightData.mainLightModulatedShadowColor = additionalLightData.modulatedShadowColor;
+                    lightData.mainLightModulatedShaodwFilterWidth = additionalLightData.modulatedShadowFilterWidth;
+                }
+            }
+            
+            lightData.useProjectionShadow = new bool[visibleLights.Length];
+            for(int i = 0; i < visibleLights.Length; ++i)
+            {
+                var additionalLightData = visibleLights[i].light.GetComponent<UniversalAdditionalLightData>();
+                lightData.useProjectionShadow[i] = additionalLightData && additionalLightData.useProjectionShadow;
+            }
         }
 
         static void CleanupLightData(ref LightData lightData)

@@ -6,8 +6,6 @@
 
 TEXTURE2D (_BlitTexture);
 TEXTURE2D (_InputDepthTexture);
-SamplerState sampler_PointClamp;
-SamplerState sampler_LinearClamp;
 uniform float4 _BlitScaleBias;
 uniform float _BlitMipLevel;
 

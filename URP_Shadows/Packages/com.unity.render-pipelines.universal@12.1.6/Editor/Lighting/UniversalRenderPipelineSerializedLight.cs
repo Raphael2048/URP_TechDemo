@@ -27,6 +27,15 @@ namespace UnityEditor.Rendering.Universal
         public SerializedProperty lightLayerMask { get; }
         public SerializedProperty customShadowLayers { get; }
         public SerializedProperty shadowLayerMask { get; }
+        
+        // Projection Shadow related
+        public SerializedProperty useProjectionShadow { get; }
+        public SerializedProperty forceMainLight { get; }
+        public SerializedProperty castModulatedShadow { get; }
+        public SerializedProperty usePCSSModulatedShadow{ get; }
+        public SerializedProperty modulatedShadowColor { get; }
+        public SerializedProperty modulatedShadowFilterWidth { get; }
+        public SerializedProperty castTransparentShadow { get; }
 
         /// <summary>Method that updates the <see cref="SerializedObject"/> of the Light and the Additional Light Data</summary>
         public void Update()
@@ -68,6 +77,14 @@ namespace UnityEditor.Rendering.Universal
             lightLayerMask = serializedAdditionalDataObject.FindProperty("m_LightLayerMask");
             customShadowLayers = serializedAdditionalDataObject.FindProperty("m_CustomShadowLayers");
             shadowLayerMask = serializedAdditionalDataObject.FindProperty("m_ShadowLayerMask");
+            
+            useProjectionShadow = serializedAdditionalDataObject.FindProperty("useProjectionShadow");
+            forceMainLight = serializedAdditionalDataObject.FindProperty("forceMainLight");
+            castModulatedShadow = serializedAdditionalDataObject.FindProperty("castModulatedShadow");
+            usePCSSModulatedShadow = serializedAdditionalDataObject.FindProperty("usePCSSModulatedShadow");
+            modulatedShadowColor = serializedAdditionalDataObject.FindProperty("modulatedShadowColor");
+            modulatedShadowFilterWidth = serializedAdditionalDataObject.FindProperty("modulatedShadowFilterWidth");
+            castTransparentShadow = serializedAdditionalDataObject.FindProperty("castTransparentShadow");
 
             settings.ApplyModifiedProperties();
         }
