@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package SceneExport;
+
+message Vector3 {
+  optional float x = 1;
+  optional float y = 2;
+  optional float z = 3;
+}
+
+message Vector2 {
+  optional float x = 1;
+  optional float y = 2;
+}
+
+message Quaternion {
+  optional float x = 1;
+  optional float y = 2;
+  optional float z = 3;
+  optional float w = 4;
+}
+
+message Transform {
+  optional Vector3 column0 = 1;
+  optional Vector3 column1 = 2;
+  optional Vector3 column2 = 3;
+  optional Vector3 column3 = 4;
+}
+
+message Mesh {
+  repeated Vector3 vertices = 1;
+  repeated Vector3 normals = 2;
+  repeated Vector3 tangents = 3;
+  repeated Vector2 uv = 4;
+  repeated int32 triangles = 5;
+}
+
+message Material {
+  optional Vector3 baseColor = 1;
+  optional int32 baseColorTexId = 2;
+  optional float metallic = 3;
+  optional int32 metallicTexId = 4;
+  optional float smoothness = 5;
+  optional int32 smoothnessTexId = 6;
+}
+
+message Renderer {
+  optional int32 meshId = 1;
+  optional int32 materialId = 2;
+  optional Transform transform = 3;
+}
+
+message Scene {
+  repeated Mesh meshes = 1;
+  repeated Material materials = 2;
+  repeated Renderer renderers = 3;
+}

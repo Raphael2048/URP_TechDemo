@@ -1,0 +1,1 @@
+This folder save Dawn Setting Templates assets.

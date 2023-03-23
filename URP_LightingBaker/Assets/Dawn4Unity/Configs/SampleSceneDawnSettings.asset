@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a181f061bc9a89345bcc41a4ac0afb61, type: 3}
+  m_Name: SampleSceneDawnSettings
+  m_EditorClassIdentifier: 
+  QualityLevel: 3
+  BakingMode: 1
+  BakingResultMode: 0
+  AtlasSettings:
+    MaxLightmapCount: 3
+    MaxLightmapSize: 2048
+    TexelPerUnit: 10
+    Padding: 1
+    CompressMode: 0
+  LightmapSettings:
+    SamplesPerPixel: 1024
+    MaxBounces: 4
+    MaxSkyBounces: 4
+    PenumbraShadowFraction: 0.3
+    RasterizationBias: 1
+    Denoiser: 0
+    DirectionalMode: 0
+    bUseHDRLightmap: 1
+  ShadowSettings:
+    Enabled: 1
+    MaxUpSamplingFactor: 4
+    ApproximateMaxTransitionDistance: 1
+    MaxTransitionDistanceWorldSpace: 0.5
+    MinDistanceFieldUpsampleFactor: 5
+  LightProbeSettings:
+    SamplesPerPixel: 512
+    MaxBounces: 4
+    WindowingTargetLaplacian: 0
+    AutoGenerationSetting:
+      AutoGeneration: 0
+      NumSurfaceLayers: 2
+      SurfaceSpacing: 3
+      FirstLayerHeight: 0.5
+      LayerHeight: 2.5
+      DetailVolumeSampleSpacing: 3
+      VolumeLightSampleSpacing: 30
+      MaxVolumeSamples: 250000
+      MaxSurfaceLightSamples: 500000
+      bUseMaxSurfaceSampleNum: 1
+      ForAllSurface: 1
+      GenerateUnityLightProbeGroup: 1
+  OcclusionSettings:
+    Enabled: 0
+    MaxAmbientDistance: 0.2
+    DirectFraction: 1
+    IndirectFraction: 1
+    OcclusionExponent: 2
+  SeamSettings:
+    EnableFix: 0
+    NumSamples: 1
+    Lambda: 0.1
+    CosNormalThreshold: 0.5
+  MiscSettings:
+    UseConservativeTexelRasterization: 1
+    MaxOffset: 10
+    SmallestTexelRadius: 0.001
+    NormalOffsetScale: 0.5
+    TangentOffsetScale: 0.8
+    NormalTextureResolution: 128
+    LightmapScaleFraction: 0.8
+    bUseMetaPass: 1
+    bUseSceneNameForOutputPath: 0
+    AlbedoBoost: 1
+    IndirectIntensity: 1
+    SharedLODIndex: -1
