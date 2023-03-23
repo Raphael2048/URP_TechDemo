@@ -1,0 +1,9 @@
+.vscode
+Logs
+Library
+obj
+Temp
+.vs
+.idea
+*.apk
+*.csproj
