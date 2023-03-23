@@ -47,6 +47,7 @@ half4 _MainLightOcclusionProbes;
 half4 _AmbientOcclusionParam;
 
 half4 _AdditionalLightsCount;
+float4 _ReflectionProbeOcclusionParams;
 
 #if USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA
 StructuredBuffer<LightData> _AdditionalLightsBuffer;

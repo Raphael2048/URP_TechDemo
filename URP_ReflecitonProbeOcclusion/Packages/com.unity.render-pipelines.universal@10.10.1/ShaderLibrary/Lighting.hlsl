@@ -586,6 +586,23 @@ half3 SampleLightmap(float2 lightmapUV, half3 normalWS)
 #define SAMPLE_GI(lmName, shName, normalWSName) SampleSHPixel(shName, normalWSName)
 #endif
 
+half FetchReflectionProbeLuminance(half3 reflectVector)
+{
+    half4 encodedIrradiance = SAMPLE_TEXTURECUBE_LOD(unity_SpecCube0, samplerunity_SpecCube0, reflectVector, UNITY_SPECCUBE_LOD_STEPS);
+#if !defined(UNITY_USE_NATIVE_HDR)
+    //在其他平台上，可能需要修改这里的数值
+#ifdef UNITY_COLORSPACE_GAMMA
+    half4 decodeInstruction = half4(2, 1, 0, 0);
+#else
+    half4 decodeInstruction = half4(4.59482, 1, 0, 0);
+#endif
+    half3 irradiance = DecodeHDREnvironment(encodedIrradiance, decodeInstruction);
+    #else
+    half3 irradiance = encodedIrradiance.rgb;
+#endif
+    return Luminance(irradiance);
+}
+
 half3 GlossyEnvironmentReflection(half3 reflectVector, half perceptualRoughness, half occlusion)
 {
 #if !defined(_ENVIRONMENTREFLECTIONS_OFF)
@@ -642,7 +659,20 @@ half3 GlobalIllumination(BRDFData brdfData, BRDFData brdfDataClearCoat, float cl
 
     half3 indirectDiffuse = bakedGI * occlusion;
     half3 indirectSpecular = GlossyEnvironmentReflection(reflectVector, brdfData.perceptualRoughness, occlusion);
-
+        
+#if LIGHTMAP_ON && !_MIXED_LIGHTING_SUBTRACTIVE
+    if(_ReflectionProbeOcclusionParams.x > 0)
+    {
+        half mix = saturate(brdfData.roughness * _ReflectionProbeOcclusionParams.z + _ReflectionProbeOcclusionParams.w);
+        mix = min(mix, _ReflectionProbeOcclusionParams.x);
+        half iblLuminance = FetchReflectionProbeLuminance(reflectVector);
+        half iblOcclusion = Luminance(bakedGI) / iblLuminance;
+        iblOcclusion = lerp(1, iblOcclusion, mix) * _ReflectionProbeOcclusionParams.y;
+        indirectSpecular *= iblOcclusion;
+    }
+#endif
+    
+    
     half3 color = EnvironmentBRDF(brdfData, indirectDiffuse, indirectSpecular, fresnelTerm);
 
 #if defined(_CLEARCOAT) || defined(_CLEARCOATMAP)

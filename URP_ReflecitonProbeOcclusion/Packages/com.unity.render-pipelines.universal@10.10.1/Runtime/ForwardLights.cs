@@ -132,6 +132,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             // Universal pipeline also supports only a single shadow light, if available it will be the main light.
             SetupMainLightConstants(cmd, ref renderingData.lightData);
             SetupAdditionalLightConstants(cmd, ref renderingData);
+            SetReflectionProbeOcclusionConstants(cmd);
         }
 
         void SetupMainLightConstants(CommandBuffer cmd, ref LightData lightData)
@@ -258,6 +259,28 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             perObjectLightIndexMap.Dispose();
             return additionalLightsCount;
+        }
+        
+        void SetReflectionProbeOcclusionConstants(CommandBuffer cmd)
+        {
+            var rpo = VolumeManager.instance.stack.GetComponent<ReflectionProbeOcclusion>();
+            Vector4 ps = new Vector4();
+            if (rpo.IsActive())
+            {
+                ps.x = rpo.maxWeight.value;
+                ps.y = 1;
+                float begin = rpo.roughnessStart.value;
+                float end = rpo.roughnessEnd.value;
+                float k = 1 / Mathf.Max(end - begin, 0.001f);
+                float k2 = -k * begin;
+                ps.z = k;
+                ps.w = k2;
+            }
+            else
+            {
+                ps.x = 0;
+            }
+            cmd.SetGlobalVector("_ReflectionProbeOcclusionParams", ps);
         }
     }
 }
