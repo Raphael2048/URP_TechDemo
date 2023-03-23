@@ -59,6 +59,9 @@ namespace UnityEngine.Rendering.Universal.Internal
         int m_BokehHash;
         bool m_IsStereo;
 
+        private RenderTexture[] m_TAAHistory;
+        private int m_TAAIndexWrite;
+        
         // True when this is the very last pass in the pipeline
         bool m_IsFinalPass;
 
@@ -119,9 +122,18 @@ namespace UnityEngine.Rendering.Universal.Internal
 
             m_MRT2 = new RenderTargetIdentifier[2];
             m_ResetHistory = true;
+            m_TAAHistory = new RenderTexture[2];
         }
 
-        public void Cleanup() => m_Materials.Cleanup();
+        public void Cleanup()
+        {
+            m_Materials.Cleanup();
+            if (m_TAAHistory[0] != null)
+            {
+                RenderTexture.ReleaseTemporary(m_TAAHistory[0]);
+                RenderTexture.ReleaseTemporary(m_TAAHistory[1]);
+            }
+        }
 
         public void Setup(in RenderTextureDescriptor baseDescriptor, in RenderTargetHandle source, in RenderTargetHandle destination, in RenderTargetHandle depth, in RenderTargetHandle internalLut, bool hasFinalPass, bool enableSRGBConversion)
         {
@@ -251,8 +263,20 @@ namespace UnityEngine.Rendering.Universal.Internal
             int destination = -1;
             bool isSceneViewCamera = cameraData.isSceneViewCamera;
 
+            RenderTargetIdentifier tempSource = -1;
+
             // Utilities to simplify intermediate target management
-            int GetSource() => source;
+            RenderTargetIdentifier GetSource()
+            {
+                if (tempSource == -1)
+                {
+                    return source;
+                }
+                else
+                {
+                    return tempSource;
+                }
+            }
 
             int GetDestination()
             {
@@ -273,7 +297,14 @@ namespace UnityEngine.Rendering.Universal.Internal
                 return destination;
             }
 
-            void Swap() => CoreUtils.Swap(ref source, ref destination);
+            void Swap()
+            {
+                if (tempSource != -1)
+                {
+                    tempSource = -1;
+                }
+                CoreUtils.Swap(ref source, ref destination);
+            }
 
             // Setup projection matrix for cmd.DrawMesh()
             cmd.SetGlobalMatrix(ShaderConstants._FullscreenProjMat, GL.GetGPUProjectionMatrix(Matrix4x4.identity, true));
@@ -297,6 +328,14 @@ namespace UnityEngine.Rendering.Universal.Internal
                 {
                     DoSubpixelMorphologicalAntialiasing(ref cameraData, cmd, GetSource(), GetDestination());
                     Swap();
+                }
+            }
+
+            if (cameraData.antialiasing == AntialiasingMode.TemporalAntialiasing)
+            {
+                using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.TAA)))
+                {
+                    tempSource = DoTAA(ref cameraData, cmd, GetSource(), GetDestination());
                 }
             }
 
@@ -439,7 +478,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         #region Sub-pixel Morphological Anti-aliasing
 
-        void DoSubpixelMorphologicalAntialiasing(ref CameraData cameraData, CommandBuffer cmd, int source, int destination)
+        void DoSubpixelMorphologicalAntialiasing(ref CameraData cameraData, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination)
         {
             var camera = cameraData.camera;
             var pixelRect = cameraData.pixelRect;
@@ -518,12 +557,76 @@ namespace UnityEngine.Rendering.Universal.Internal
         }
 
         #endregion
+        
+        #region Temporal Anti-aliasing
+
+        bool EnsureTAATexture(ref RenderTexture rt)
+        {
+            if (rt != null && (rt.width != m_Descriptor.width || rt.height != m_Descriptor.height))
+            {
+                RenderTexture.ReleaseTemporary(rt);
+                rt = null;
+            }
+
+            if (rt == null)
+            {
+                var desc = m_Descriptor;
+                // OpenglES3不支持可读写的R11G11B10格式
+                if (!SystemInfo.usesReversedZBuffer) desc.colorFormat = RenderTextureFormat.ARGBHalf;
+                desc.depthBufferBits = 0;
+                desc.enableRandomWrite = true;
+                rt = RenderTexture.GetTemporary(desc);
+                if (!rt.IsCreated()) rt.Create();
+                return true;
+            }
+            return false;
+        }
+
+        RenderTargetIdentifier DoTAA(ref CameraData cameraData, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination)
+        {
+            bool reset = EnsureTAATexture(ref m_TAAHistory[0]) | EnsureTAATexture(ref m_TAAHistory[1]);
+            int indexRead = m_TAAIndexWrite;
+            m_TAAIndexWrite = (++m_TAAIndexWrite) % 2;
+            var history = m_TAAHistory[indexRead];
+            var write = m_TAAHistory[m_TAAIndexWrite];
+
+            cmd.SetGlobalTexture("_InputTexture", source);
+            cmd.SetGlobalTexture("_InputHistoryTexture", history);
+            var offset = cameraData.GetJitterParams();
+            Vector4 p = new Vector4(offset.x / cameraData.pixelWidth, offset.y / cameraData.pixelHeight, reset ? 1 : 0);
+
+            if (cameraData.antialiasingQuality <= AntialiasingQuality.Medium)
+            {
+                var material = m_Materials.taa;
+                if (cameraData.antialiasingQuality == AntialiasingQuality.Medium)
+                {
+                    material.EnableKeyword("_USE_MOTION_VECTOR_BUFFER");
+                }
+                else
+                {
+                    material.DisableKeyword("_USE_MOTION_VECTOR_BUFFER");
+                }
+                cmd.SetRenderTarget(write, destination, 0, CubemapFace.Unknown, 0);
+                material.SetVector("_Params", p);
+                cmd.DrawProcedural(Matrix4x4.identity, material, 0, MeshTopology.Triangles,3);
+            }
+            else
+            {
+                var cs = m_Materials.taaCS;
+                cs.SetTexture(0, "_Result", write);
+                cs.SetVector("_Params", p);
+                cmd.DispatchCompute(cs, 0, (cameraData.pixelWidth - 1) / 8 + 1, (cameraData.pixelHeight - 1) / 8 + 1, 1);
+            }
+            return write;
+        }
+        
+        #endregion
 
         #region Depth Of Field
 
         // TODO: CoC reprojection once TAA gets in LW
         // TODO: Proper LDR/gamma support
-        void DoDepthOfField(Camera camera, CommandBuffer cmd, int source, int destination, Rect pixelRect)
+        void DoDepthOfField(Camera camera, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination, Rect pixelRect)
         {
             if (m_DepthOfField.mode.value == DepthOfFieldMode.Gaussian)
                 DoGaussianDepthOfField(camera, cmd, source, destination, pixelRect);
@@ -531,7 +634,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 DoBokehDepthOfField(cmd, source, destination, pixelRect);
         }
 
-        void DoGaussianDepthOfField(Camera camera, CommandBuffer cmd, int source, int destination, Rect pixelRect)
+        void DoGaussianDepthOfField(Camera camera, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination, Rect pixelRect)
         {
             var material = m_Materials.gaussianDepthOfField;
             int wh = m_Descriptor.width / 2;
@@ -569,7 +672,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             cmd.SetRenderTarget(m_MRT2, ShaderConstants._HalfCoCTexture, 0, CubemapFace.Unknown, -1);
             cmd.DrawMesh(RenderingUtils.fullscreenMesh, Matrix4x4.identity, material, 0, 1);
             cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
-
             // Blur
             cmd.SetGlobalTexture(ShaderConstants._HalfCoCTexture, ShaderConstants._HalfCoCTexture);
             cmd.Blit(ShaderConstants._PingTexture, ShaderConstants._PongTexture, material, 2);
@@ -637,7 +739,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             return Mathf.Min(0.05f, kRadiusInPixels / viewportHeight);
         }
 
-        void DoBokehDepthOfField(CommandBuffer cmd, int source, int destination, Rect pixelRect)
+        void DoBokehDepthOfField(CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination, Rect pixelRect)
         {
             var material = m_Materials.bokehDepthOfField;
             int wh = m_Descriptor.width / 2;
@@ -695,7 +797,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         #region Motion Blur
 
-        void DoMotionBlur(Camera camera, CommandBuffer cmd, int source, int destination)
+        void DoMotionBlur(Camera camera, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination)
         {
             var material = m_Materials.cameraMotionBlur;
 
@@ -725,7 +827,7 @@ namespace UnityEngine.Rendering.Universal.Internal
         #region Panini Projection
 
         // Back-ported & adapted from the work of the Stockholm demo team - thanks Lasse!
-        void DoPaniniProjection(Camera camera, CommandBuffer cmd, int source, int destination)
+        void DoPaniniProjection(Camera camera, CommandBuffer cmd, RenderTargetIdentifier source, RenderTargetIdentifier destination)
         {
             float distance = m_PaniniProjection.distance.value;
             var viewExtents = CalcViewExtents(camera);
@@ -799,7 +901,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
         #region Bloom
 
-        void SetupBloom(CommandBuffer cmd, int source, Material uberMaterial)
+        void SetupBloom(CommandBuffer cmd, RenderTargetIdentifier source, Material uberMaterial)
         {
             // Start at half-res
             int tw = m_Descriptor.width >> 1;
@@ -1113,6 +1215,8 @@ namespace UnityEngine.Rendering.Universal.Internal
             public readonly Material bloom;
             public readonly Material uber;
             public readonly Material finalPass;
+            public readonly Material taa;
+            public readonly ComputeShader taaCS;
 
             public MaterialLibrary(PostProcessData data)
             {
@@ -1125,6 +1229,8 @@ namespace UnityEngine.Rendering.Universal.Internal
                 bloom = Load(data.shaders.bloomPS);
                 uber = Load(data.shaders.uberPostPS);
                 finalPass = Load(data.shaders.finalPostPassPS);
+                taa = Load(data.shaders.taaPS);
+                taaCS = data.shaders.taaCS;
             }
 
             Material Load(Shader shader)
@@ -1153,6 +1259,7 @@ namespace UnityEngine.Rendering.Universal.Internal
                 CoreUtils.Destroy(bloom);
                 CoreUtils.Destroy(uber);
                 CoreUtils.Destroy(finalPass);
+                CoreUtils.Destroy(taa);
             }
         }
 

@@ -27,6 +27,7 @@ namespace UnityEngine.Rendering.Universal
         PostProcessPass m_FinalPostProcessPass;
         FinalBlitPass m_FinalBlitPass;
         CapturePass m_CapturePass;
+        MotionVectorPass m_MotionVectorPass;
 
 #if POST_PROCESSING_STACK_2_0_0_OR_NEWER
         PostProcessPassCompat m_OpaquePostProcessPassCompat;
@@ -45,6 +46,7 @@ namespace UnityEngine.Rendering.Universal
         RenderTargetHandle m_OpaqueColor;
         RenderTargetHandle m_AfterPostProcessColor;
         RenderTargetHandle m_ColorGradingLut;
+        RenderTargetHandle m_MotionVector;
 
         ForwardLights m_ForwardLights;
         StencilState m_DefaultStencilState;
@@ -93,6 +95,7 @@ namespace UnityEngine.Rendering.Universal
             m_CapturePass = new CapturePass(RenderPassEvent.AfterRendering);
             m_FinalBlitPass = new FinalBlitPass(RenderPassEvent.AfterRendering + 1, m_BlitMaterial);
 
+            m_MotionVectorPass = new MotionVectorPass();
 #if POST_PROCESSING_STACK_2_0_0_OR_NEWER
             m_OpaquePostProcessPassCompat = new PostProcessPassCompat(RenderPassEvent.BeforeRenderingOpaques, true);
             m_PostProcessPassCompat = new PostProcessPassCompat(RenderPassEvent.BeforeRenderingPostProcessing);
@@ -110,6 +113,7 @@ namespace UnityEngine.Rendering.Universal
             m_OpaqueColor.Init("_CameraOpaqueTexture");
             m_AfterPostProcessColor.Init("_AfterPostProcessTexture");
             m_ColorGradingLut.Init("_InternalGradingLut");
+            m_MotionVector.Init("_CameraMotionVectorsTexture");
             m_ForwardLights = new ForwardLights();
 
             supportedRenderingFeatures = new RenderingFeatures()
@@ -320,6 +324,12 @@ namespace UnityEngine.Rendering.Universal
                 Downsampling downsamplingMethod = UniversalRenderPipeline.asset.opaqueDownsampling;
                 m_CopyColorPass.Setup(m_ActiveCameraColorAttachment.Identifier(), m_OpaqueColor, downsamplingMethod);
                 EnqueuePass(m_CopyColorPass);
+            }
+
+            if (cameraData.postProcessEnabled && cameraData.antialiasing == AntialiasingMode.TemporalAntialiasing)
+            {
+                m_MotionVectorPass.Setup(ref renderingData, m_MotionVector, m_ActiveCameraDepthAttachment);
+                EnqueuePass(m_MotionVectorPass);
             }
 
 #if ADAPTIVE_PERFORMANCE_2_1_0_OR_NEWER
