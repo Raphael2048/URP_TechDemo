@@ -1,0 +1,75 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Clear
+#pragma kernel Project
+
+#include "PPRFunction.hlsl"
+
+
+RWTexture2D<uint> _IntermediateTexture;
+Texture2D<float> _CameraDepthTexture;
+float4 _TextureSize;
+float3 _WSCameraPos;
+float4 _ReflectionPlane;
+float4x4 _WorldToClipMatrix;
+float4x4 _ClipToWorldMatrix;
+SamplerState sampler_LinearClamp;
+float _BlurMaxDistance;
+
+[numthreads(8, 8, 1)]
+void Clear(uint3 id : SV_DispatchThreadID)
+{
+    if(all(id.xy < (uint2)(_TextureSize.xy)))
+    {
+        _IntermediateTexture[id.xy] = PROJECTION_CLEAR_VALUE;
+    }
+}
+
+void ProjectionPassWrite(int2 ReflectedPixel, float2 ReflectingCoord, int distance)
+{
+    int2 Base = floor(ReflectingCoord);
+
+    [unroll]
+    for(int y = 0; y < 2; ++y)
+    {
+        for(int x = 0; x < 2; ++x)
+        {
+            int2 ReflectingPixel = Base + int2(x, y);
+            int2 PixelOffset = ReflectingPixel - ReflectedPixel;
+            
+            uint Value = EncodeProjectionBufferValue(PixelOffset, distance);
+            InterlockedMin(_IntermediateTexture[ReflectingPixel], Value);
+        }
+    }
+}
+
+[numthreads(8, 8, 1)]
+void Project (uint3 id : SV_DispatchThreadID)
+{
+    if(all(id.xy < (uint2)(_TextureSize.xy)))
+    {
+        float2 uv = (id.xy + 0.5) * _TextureSize.zw;
+        float depth = _CameraDepthTexture.SampleLevel(sampler_LinearClamp, uv, 0);
+        float3 ndc = float3(uv * 2 - 1, depth);
+        
+        // 被反射的目标点的世界坐标
+        float4 wpos = mul(_ClipToWorldMatrix, float4(ndc, 1));
+        wpos /= wpos.w;
+        
+        float distance = dot(_ReflectionPlane, wpos);
+
+        [branch]
+        if(distance > 0.01)
+        {
+            float3 MirroredPosition = wpos.xyz - _ReflectionPlane.xyz * (2 * distance);
+            float4 MirroredNDC = mul(_WorldToClipMatrix, float4(MirroredPosition, 1));
+            float2 MirroredUV = MirroredNDC.xy / MirroredNDC.w;
+            [branch]
+            if(all(abs(MirroredUV) < 1.0f))
+            {
+                float2 MirroredPixelCoord = (MirroredUV * 0.5f + 0.5f) * _TextureSize.xy;
+                int IntDistance = clamp((int)(distance * _BlurMaxDistance * 64), 0, 63);
+                ProjectionPassWrite(id.xy, MirroredPixelCoord, IntDistance);
+            }
+        }
+    }
+}

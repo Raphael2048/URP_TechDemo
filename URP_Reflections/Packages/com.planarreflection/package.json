@@ -1,0 +1,14 @@
+{
+  "name": "com.planarreflection",
+  "displayName": "PlanarReflection",
+  "description": "Rendering planar reflection.",
+  "version": "1.0.0",
+  "unity": "2020.3",
+  "samples": [
+    {
+      "displayName": "Planar Reflection Samples",
+      "description": "Planar Reflection Features Scene",
+      "path": "Samples~/PlanarReflectionSamples"
+    }
+  ]
+}

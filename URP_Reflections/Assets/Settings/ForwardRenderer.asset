@@ -1,5 +1,22 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-3819839122832833004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f925a328153c78459a58a67b22f99b4, type: 3}
+  m_Name: NewPlanarReflectionRendererFeature
+  m_EditorClassIdentifier: 
+  m_Active: 1
+  usualReflectionIntensityShader: {fileID: 4800000, guid: 695efd04d0e74a51b3755021efefbe05, type: 3}
+  pprProjectionComputeShader: {fileID: 7200000, guid: f64e6869c94dfef40b3ffe1b3b7245c7, type: 3}
+  pprReflectionIntensityShader: {fileID: 4800000, guid: 49b0b98e2cf96d44790cbcd7768fb95b, type: 3}
+  PlanarReflectionFilterShader: {fileID: 4800000, guid: 3f23765724c4a594f9bd1b1365d93512, type: 3}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12,8 +29,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de640fe3d0db1804a85f9fc8f5cadab6, type: 3}
   m_Name: ForwardRenderer
   m_EditorClassIdentifier: 
-  m_RendererFeatures: []
-  m_RendererFeatureMap: 
+  m_RendererFeatures:
+  - {fileID: -3819839122832833004}
+  m_RendererFeatureMap: 14c668608e34fdca
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
   xrSystemData: {fileID: 11400000, guid: 60e1133243b97e347b653163a8c01b64, type: 2}
   shaders:
