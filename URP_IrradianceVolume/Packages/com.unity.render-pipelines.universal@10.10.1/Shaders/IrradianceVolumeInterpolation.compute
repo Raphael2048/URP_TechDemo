@@ -1,0 +1,43 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+Texture3D front1;
+Texture3D front2;
+Texture3D after1;
+Texture3D after2;
+float x;
+RWTexture3D<float4> RT1;
+RWTexture3D<float4> RT2;
+
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
+// #pragma enable_d3d11_debug_symbols
+[numthreads(32,4,4)]
+void CSMain(uint3 id : SV_DISPATCHTHREADID)
+{
+    float4 v1 = front1[id];
+    float4 v2 = after1[id];
+    float4 v3 = front2[id];
+    float4 v4 = after2[id];
+    if(x==0)
+    {
+        RT1[id]=v1;
+        RT2[id]=v3;
+    }
+    else if(x==1)
+    {
+        RT1[id]=v2;
+        RT2[id]=v4;
+    }
+    else
+    {
+        // float3 color1 = DecodeRGBM(v1);
+        // float3 color2 = DecodeRGBM(v2);
+        // RT1[id]=EncodeRGBM(lerp(color1, color2, x));
+        RT1[id] = lerp(v1, v2, x);
+        RT2[id] = lerp(v3, v4, x);
+    }  
+}
+
+
+

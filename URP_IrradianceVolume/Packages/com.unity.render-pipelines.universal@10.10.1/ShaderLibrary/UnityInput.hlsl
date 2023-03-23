@@ -131,6 +131,17 @@ real4 unity_SHBb;
 real4 unity_SHC;
 CBUFFER_END
 
+Texture3D _IrradianceVolumeSHTexture1;
+Texture3D _IrradianceVolumeSHTexture2;
+Texture3D _IrradianceVolumeMappingTexture;
+float4 _IrradianceVolumeParams[10];
+
+#define _IrradianceVolumeMappingTextureMultipy _IrradianceVolumeParams[0].xyz
+#define _IrradianceVolumeMappingTextureAdd _IrradianceVolumeParams[1].xyz
+#define _IrradianceVolumeMappingCoordToSHCoord _IrradianceVolumeParams[0].w
+#define _IrradianceVolumeMappingTextureSize _IrradianceVolumeParams[2].xyz
+#define _IrradianceVolumeMappingSHTextureInvSize _IrradianceVolumeParams[3].xyz
+
 #if defined(USING_STEREO_MATRICES)
 CBUFFER_START(UnityStereoViewBuffer)
 float4x4 unity_StereoMatrixP[2];
@@ -198,7 +209,15 @@ int unity_StereoEyeIndex;
 #endif
 
 real4 unity_ShadowColor;
+// ----------------------------------------------------------------------------------
+// Samplers
 
+SAMPLER(sampler_LinearClamp);
+SAMPLER(sampler_LinearRepeat);
+SAMPLER(sampler_PointClamp);
+SAMPLER(sampler_PointRepeat);
+SAMPLER(sampler_TrilinearClamp);
+SAMPLER(sampler_TrilinearRepeat);
 // ----------------------------------------------------------------------------
 
 // Unity specific

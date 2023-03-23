@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3649da5405bd492997d0c048031ada3f, type: 3}
+  m_Name: Octree
+  m_EditorClassIdentifier: 
+  OriginPos:
+    x: -76.99999
+    y: 8.609996
+    z: -38.56529
+  CellSize:
+    x: 31.99999
+    y: 7.428288
+    z: 28.289808
+  CellCount:
+    x: 1
+    y: 1
+    z: 1
+  SHTexture1: {fileID: 11700000, guid: 072b8bb763b0ec14bb7850fdf19e99f2, type: 2}
+  SHTexture2: {fileID: 11700000, guid: 7c3ffb1e667d2b8459a5300eb62283bf, type: 2}
+  MappingTexture: {fileID: 11700000, guid: 941ca6a077ae45244b319d516d5b7699, type: 2}
+  TextureSize:
+    x: 256
+    y: 4
+    z: 4
+  MappingTextureSize:
+    x: 3
+    y: 3
+    z: 3
+  Saved: 1
+  textures1: []
+  textures2: []

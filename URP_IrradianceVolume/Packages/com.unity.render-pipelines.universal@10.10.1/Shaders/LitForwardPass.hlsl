@@ -84,7 +84,11 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
 
     inputData.fogCoord = input.fogFactorAndVertexLight.x;
     inputData.vertexLighting = input.fogFactorAndVertexLight.yzw;
+#if defined(_IRRADIANCE_VOLUME)
+    inputData.bakedGI = SampleIrradianceVolume(inputData.positionWS, inputData.normalWS);
+#else
     inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
+#endif    
     inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
     inputData.shadowMask = SAMPLE_SHADOWMASK(input.lightmapUV);
 }

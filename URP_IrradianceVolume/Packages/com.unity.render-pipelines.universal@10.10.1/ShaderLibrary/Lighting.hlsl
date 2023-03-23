@@ -537,6 +537,32 @@ half3 SampleSHPixel(half3 L2Term, half3 normalWS)
     return SampleSH(normalWS);
 }
 
+uint4 UnpackUIntToInt4(uint packed)
+{
+    return uint4(packed & 0xFF, (packed >> 8) & 0xFF, (packed >> 16) & 0xFF, packed >> 24);
+}
+
+half3 SampleIrradianceVolume(half3 position, half3 normal)
+{
+    float3 MapCoord = position * _IrradianceVolumeMappingTextureMultipy + _IrradianceVolumeMappingTextureAdd;
+    MapCoord = clamp(MapCoord, 0, _IrradianceVolumeMappingTextureSize);
+    float4 value = _IrradianceVolumeMappingTexture.Load(int4(MapCoord, 0));
+    uint4 LocationAndScale = round(value * 255.0f);
+    float3 SHTextureCoord;
+    if(LocationAndScale.w == 0)
+    { 
+        SHTextureCoord = frac(MapCoord) * 3 + LocationAndScale.xyz + 0.5f;
+    }
+    else
+    {
+        SHTextureCoord = frac(MapCoord * _IrradianceVolumeMappingCoordToSHCoord * LocationAndScale.w) + LocationAndScale.xyz + 0.5f;
+    }
+    float3 UVW = SHTextureCoord * _IrradianceVolumeMappingSHTextureInvSize;
+    float3 sample1 = DecodeRGBM(_IrradianceVolumeSHTexture1.SampleLevel(sampler_TrilinearClamp, UVW, 0));
+    float3 sample2 = _IrradianceVolumeSHTexture2.SampleLevel(sampler_TrilinearClamp, UVW, 0).xyz * 4.0f - 2.0f;
+    return sample1 * (1.0f + dot(sample2, normal));
+}
+
 #if defined(UNITY_DOTS_INSTANCING_ENABLED)
 #define LIGHTMAP_NAME unity_Lightmaps
 #define LIGHTMAP_INDIRECTION_NAME unity_LightmapsInd
