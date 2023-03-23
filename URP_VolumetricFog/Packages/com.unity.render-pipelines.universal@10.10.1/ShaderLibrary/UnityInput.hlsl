@@ -131,6 +131,16 @@ real4 unity_SHBb;
 real4 unity_SHC;
 CBUFFER_END
 
+// ----------------------------------------------------------------------------------
+// Samplers
+
+SAMPLER(sampler_LinearClamp);
+SAMPLER(sampler_LinearRepeat);
+SAMPLER(sampler_PointClamp);
+SAMPLER(sampler_PointRepeat);
+SAMPLER(sampler_TrilinearClamp);
+SAMPLER(sampler_TrilinearRepeat);
+
 #if defined(USING_STEREO_MATRICES)
 CBUFFER_START(UnityStereoViewBuffer)
 float4x4 unity_StereoMatrixP[2];

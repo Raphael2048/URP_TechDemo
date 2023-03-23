@@ -1,0 +1,238 @@
+﻿#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+RWTexture3D<float4> _ScatteringLight;
+Texture3D<float4> _ScatteringLightHistory;
+RWTexture3D<float4> _ScatteringLightIntegrated;
+
+Texture3D _NoiseTexture;
+Texture3D _DetailTexture;
+
+float4x4 _PrevWorldToClipMatrix;
+
+#pragma enable_d3d11_debug_symbols
+// 0 - 5
+#pragma kernel ScatteringCS _NOISE_NONE
+#pragma kernel ScatteringCS _NOISE
+#pragma kernel ScatteringCS _NOISE_DETAIL 
+#pragma kernel ScatteringCS _NOISE_NONE _ADDITIONAL_LIGHTS
+#pragma kernel ScatteringCS _NOISE _ADDITIONAL_LIGHTS
+#pragma kernel ScatteringCS _NOISE_DETAIL _ADDITIONAL_LIGHTS
+
+float3 LightScatteringColor(float3 V, float3 L)
+{
+	float k = dot(V, L) * 0.5f + 0.5f;
+	float3 result = lerp(VFog_ForwardScatteringColor, VFog_BackwardScatteringColor, k);
+	return result;
+}
+
+float3 WorldPoitionToPreUVW(float3 WorldPos)
+{
+	float4 NDC = mul(_PrevWorldToClipMatrix, float4(WorldPos, 1));
+	NDC.xyz /= NDC.w;
+	// NDC.w 等于Eye空间下，z的值
+	return float3(NDC.xy * 0.5 + 0.5, EyeDepthToVolumeW(NDC.w));
+}
+
+float PhaseFunction(float g, float CosTheta)
+{
+	float k = 3.0 / (8.0 * PI) * (1.0 - g * g) / (2.0 + g * g);
+	return k * (1.0 + CosTheta * CosTheta) / pow(1.0 + g * g - 2.0 * g * CosTheta, 1.5);
+}
+
+
+[numthreads(8, 8, 1)]
+void ScatteringCS(uint3 id : SV_DispatchThreadID)
+{
+	float3 uvw = (id + VFog_Jitter) * VFog_InvVolumeSize.xyz;
+	// 到相机的距离
+	float Depth = VolumeWToEyeDepth(uvw.z);
+	float3 WorldPos = NDCToWorldPostion(float3(uvw.xy * 2 - 1, EyeToClipDepth(Depth)));
+
+	float Intensity = 1.0f;
+	if(VFog_UseLocalVolumetricFog)
+	{
+		float3 LocalUVW = (WorldPos - VFog_LocalVolumetricFogStartPos) * VFog_LocalVolumetricFogInvSize;
+		float3 LocalFade = saturate((0.5f - abs(LocalUVW - 0.5f)));
+		Intensity *= saturate((Min3(LocalFade.x, LocalFade.y, LocalFade.z) * VFog_LocalVolumetricFogInvEdgeFade));
+		if (Intensity == 0)
+		{
+			_ScatteringLight[id] = 0;
+			return;
+		}
+	}
+	#ifndef _NOISE_NONE
+		float3 NoiseUVW;
+		if (VFog_UseLocalVolumetricFog)
+		{
+			NoiseUVW = (WorldPos - VFog_LocalVolumetricFogStartPos) * VFog_LocalVolumetricFogInvSize;
+		}
+		else
+		{
+			NoiseUVW = WorldPos / 100;
+		}
+		NoiseUVW = NoiseUVW * VFog_NoiseTexture_Tiling + VFog_NoiseTexture_Speed * _Time.x;
+		float NoiseValue = _NoiseTexture.SampleLevel(sampler_TrilinearRepeat, NoiseUVW, 0).x;
+		Intensity *= NoiseValue;
+		#ifdef _NOISE_DETAIL
+			float3 DetailUVW = (WorldPos / 100.0f) * VFog_DetailTexture_Tiling + VFog_DetailTexture_Speed * _Time.x;
+			float DetailValue = _DetailTexture.SampleLevel(sampler_TrilinearRepeat, DetailUVW, 0).r;
+			Intensity = lerp(Intensity, Intensity * DetailValue, VFog_DetailTextureIntensity);
+		#endif
+	#endif
+	
+	float3 V = normalize(_WorldSpaceCameraPos - WorldPos.xyz);
+	float3 L = - _MainLightPosition.xyz;
+	
+	float3 LightScattering = _MainLightColor.xyz * LightScatteringColor(V, L);
+#if _ADDITIONAL_LIGHTS
+	uint pixelLightCount = _AdditionalLightsCount.x;
+	for (uint lightIndex = 0u; lightIndex < pixelLightCount; ++lightIndex)
+	{
+		int perObjectLightIndex = lightIndex;
+#if USE_STRUCTURED_BUFFER_FOR_LIGHT_DATA
+		float4 lightPositionWS = _AdditionalLightsBuffer[perObjectLightIndex].position;
+		half3 color = _AdditionalLightsBuffer[perObjectLightIndex].color.rgb;
+		half4 distanceAndSpotAttenuation = _AdditionalLightsBuffer[perObjectLightIndex].attenuation;
+		half4 spotDirection = _AdditionalLightsBuffer[perObjectLightIndex].spotDirection;
+#else
+		float4 lightPositionWS = _AdditionalLightsPosition[perObjectLightIndex];
+		half3 color = _AdditionalLightsColor[perObjectLightIndex].rgb;
+		half4 distanceAndSpotAttenuation = _AdditionalLightsAttenuation[perObjectLightIndex];
+		half4 spotDirection = _AdditionalLightsSpotDir[perObjectLightIndex];
+#endif
+		if(lightPositionWS.w == 0.0f)
+		{
+			LightScattering += color.xyz * LightScatteringColor(V, lightPositionWS);
+		}
+		else
+		{
+			//平行光w值是0
+			float3 lightVector = lightPositionWS.xyz - WorldPos * lightPositionWS.w;
+			float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
+			half3 lightDirection = half3(lightVector * rsqrt(distanceSqr));
+			half attenuation = 1.0f;
+			float invRangeSqr = distanceAndSpotAttenuation.x * VFog_LightRangeMulValue;
+			if(distanceAndSpotAttenuation.z == 0)
+			{
+				//防止中心位置亮度过大闪烁
+				distanceSqr = max(distanceSqr, 0.1f);
+			}
+			else
+			{
+				attenuation = AngleAttenuation(spotDirection.xyz, lightDirection, distanceAndSpotAttenuation.zw);
+				//防止spot light顶部闪烁
+				attenuation *= saturate(distanceSqr * distanceSqr * 0.25f);
+			}
+			float lightAtten = rcp(distanceSqr);
+			half factor = distanceSqr * invRangeSqr;
+			half smoothFactor = saturate(1.0h - factor * factor);
+			smoothFactor = smoothFactor * smoothFactor;
+			attenuation *=  lightAtten * smoothFactor;
+			LightScattering += color.xyz * LightScatteringColor(V, lightDirection) * attenuation;
+		}
+	}
+	// uint GridIndex = ComputeLightGridCellIndex(float4(uvw.xy * _ScreenParams.xy, 0, Depth));
+	// uint lightCount = _NumCulledLightsGrid[GridIndex];
+	//
+	// if (lightCount > 0)
+	// {
+	// 	//平行光
+	// 	for(uint l = 0u; l < (uint)_AdditionalLightsCount.w; ++l)
+	// 	{
+	// 		half4 color = _AdditionalLightsColor[l];
+	// 		half3 lightDirection = _AdditionalLightsPosition[l].xyz;
+	// 		uint lightLayerMask = asuint(_AdditionalLightsLayerMasks[l]);
+	// 		if(!VFog_UseLightLayer || (VFog_UseLightLayer && IsMatchingLightLayer(RenderingLayer, lightLayerMask)))
+	// 		{
+	// 			LightScattering += color.xyz * LightScatteringColor(V, lightDirection) * color.a;
+	// 		}
+	// 	}
+	// 	
+	// 	uint maxLightsPerCluster = _AdditionalLightsCount.z;
+	// 	uint maxValueCount = maxLightsPerCluster >> 2;
+	// 	UNITY_LOOP
+	// 	for (uint i = 0u; i < lightCount; ++i)
+	// 	{
+	// 		uint step = i >> 2; // i / 4 = step
+	// 		uint value = _CulledLightDataGrid[GridIndex * maxValueCount + step];
+	// 		uint perObjectLightIndex = (value >> (24 - (i - step * 4) * 8)) & 0xFF;
+	// 		half4 color = _AdditionalLightsColor[perObjectLightIndex];
+	// 		if (color.a > 0)
+	// 		{
+	// 			float4 lightPositionWS = _AdditionalLightsPosition[perObjectLightIndex];
+	// 			half4 distanceAndSpotAttenuation = _AdditionalLightsAttenuation[perObjectLightIndex];
+	// 			half4 spotDirection = _AdditionalLightsSpotDir[perObjectLightIndex];
+	// 		
+	// 			//平行光w值是0
+	// 			float3 lightVector = lightPositionWS.xyz - WorldPos * lightPositionWS.w;
+	// 			float distanceSqr = max(dot(lightVector, lightVector), HALF_MIN);
+	// 			half3 lightDirection = half3(lightVector * rsqrt(distanceSqr));
+	// 			half attenuation = 1.0f;
+	// 			float invRangeSqr = distanceAndSpotAttenuation.x * _LightGridSize.w;
+	// 			if(distanceAndSpotAttenuation.z == 0)
+	// 			{
+	// 				//防止中心位置亮度过大闪烁
+	// 				distanceSqr = max(distanceSqr, 0.1f);
+	// 			}
+	// 			else
+	// 			{
+	// 				attenuation = AngleAttenuation(spotDirection.xyz, lightDirection, distanceAndSpotAttenuation.zw);
+	// 				//防止spot light顶部闪烁
+	// 				attenuation *= saturate(distanceSqr * distanceSqr * 0.25f);
+	// 			}
+	// 			float lightAtten = rcp(distanceSqr);
+	// 			half factor = distanceSqr * invRangeSqr;
+	// 			half smoothFactor = saturate(1.0h - factor * factor);
+	// 			smoothFactor = smoothFactor * smoothFactor;
+	// 			attenuation *=  lightAtten * smoothFactor;
+	// 			uint lightLayerMask = asuint(_AdditionalLightsLayerMasks[i]);
+	// 			if(!VFog_UseLightLayer || (VFog_UseLightLayer && IsMatchingLightLayer(RenderingLayer, lightLayerMask)))
+	// 			{
+	// 				LightScattering += color.xyz * LightScatteringColor(V, lightDirection) * attenuation * color.a;
+	// 			}
+	// 		}
+	// 	}
+	// }
+#endif
+	
+	LightScattering = LightScattering * INV_TWO_PI + VFog_AmbientLight;
+	
+	float SigmaT = VFog_Extinction * 0.01f * Intensity ;
+	// RGB，散射光照的值；A 衰减系数
+	float4 Result = float4(LightScattering * SigmaT, SigmaT);
+	if(VFog_SkipHistory == 0.0f)
+	{
+		float3 PreUVW = WorldPoitionToPreUVW(CoordinateToWorldPosition(id, 0.5f));
+		if(all(PreUVW >= 0.0f) && all(PreUVW <= 1.0f))
+		{
+			float4 PreResult = _ScatteringLightHistory.SampleLevel(sampler_LinearClamp, PreUVW, 0);
+			Result = lerp(Result, PreResult, 0.9f);
+		}
+	}
+	_ScatteringLight[id] = Result;
+}
+
+#pragma kernel IntegrationCS
+[numthreads(8, 8, 1)]
+void IntegrationCS(uint3 id : SV_DispatchThreadID)
+{
+	half3 AccumulatedLighting = 0;
+	half AccumulatedTransmittance = 1.0f;
+	half3 PreviousSliceWorldPosition = _WorldSpaceCameraPos;
+	uint Depth = 1 / VFog_InvVolumeSize.z;
+	for(uint i = 0; i < Depth; i++)
+	{
+		uint3 Coordinate = uint3(id.xy, i); 
+		half4 ScatteringAndExtinction = _ScatteringLightHistory[Coordinate];
+		half3 WorldPos = CoordinateToWorldPosition(Coordinate, 0.5);
+		half Length = length(WorldPos - PreviousSliceWorldPosition);
+		PreviousSliceWorldPosition = WorldPos;
+		half Transmittance = exp(-ScatteringAndExtinction.w * Length);
+		
+		// 能量不守恒，但速度更快
+		AccumulatedLighting += ScatteringAndExtinction.rgb * AccumulatedTransmittance * Length;
+		
+		AccumulatedTransmittance *= Transmittance;
+		_ScatteringLightIntegrated[Coordinate] = half4(AccumulatedLighting, AccumulatedTransmittance);
+	}
+}

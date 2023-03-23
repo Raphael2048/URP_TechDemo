@@ -32,14 +32,6 @@ Varyings VertFullscreenMesh(Attributes input)
 }
 
 // ----------------------------------------------------------------------------------
-// Samplers
-
-SAMPLER(sampler_LinearClamp);
-SAMPLER(sampler_LinearRepeat);
-SAMPLER(sampler_PointClamp);
-SAMPLER(sampler_PointRepeat);
-
-// ----------------------------------------------------------------------------------
 // Utility functions
 
 half GetLuminance(half3 colorLinear)

@@ -326,6 +326,7 @@ namespace UnityEngine.Rendering.Universal
         public static readonly string TonemapNeutral = "_TONEMAP_NEUTRAL";
         public static readonly string FilmGrain = "_FILM_GRAIN";
         public static readonly string Fxaa = "_FXAA";
+        public static readonly string VolumetricFog = "_VOLUMETRIC_FOG";
         public static readonly string Dithering = "_DITHERING";
         public static readonly string ScreenSpaceOcclusion = "_SCREEN_SPACE_OCCLUSION";
 

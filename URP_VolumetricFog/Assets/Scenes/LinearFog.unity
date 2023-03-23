@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.16788375, g: 0.21073635, b: 0.28994125, a: 1}
+  m_IndirectSpecularColor: {r: 0.18028378, g: 0.22571412, b: 0.30692285, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -97,7 +97,7 @@ LightmapSettings:
     m_ExportTrainingData: 0
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
-  m_LightingDataAsset: {fileID: 112000000, guid: 43d4bed4b8eb33d4b803a1f152877a27, type: 2}
+  m_LightingDataAsset: {fileID: 112000000, guid: 1690b6ba32749254a94d9e7d3f433e55, type: 2}
   m_LightingSettings: {fileID: 4890085278179872738, guid: 0fa950ed10680394ca552c4781c883d3, type: 2}
 --- !u!196 &4
 NavMeshSettings:
@@ -2854,8 +2854,8 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 291955845}
-  m_LocalRotation: {x: -0.2810716, y: -0.050429877, z: 0.0020000096, w: -0.9583589}
-  m_LocalPosition: {x: -62.98, y: 13.72, z: -39.1}
+  m_LocalRotation: {x: -0.003463775, y: -0.69556516, z: 0.0033370433, w: -0.71844697}
+  m_LocalPosition: {x: -90.22757, y: 16.660826, z: -22.396023}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -8844,7 +8844,7 @@ Light:
   serializedVersion: 10
   m_Type: 1
   m_Shape: 0
-  m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
+  m_Color: {r: 0.990566, g: 0.91911125, b: 0.7242346, a: 1}
   m_Intensity: 1.43
   m_Range: 10
   m_SpotAngle: 30
@@ -8884,7 +8884,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 2
+  m_Lightmapping: 4
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -14384,7 +14384,7 @@ MonoBehaviour:
   priority: 0
   blendDistance: 0
   weight: 1
-  sharedProfile: {fileID: 11400000, guid: d1b3770506143584ebc1e1239cd14ad1, type: 2}
+  sharedProfile: {fileID: 11400000, guid: 1de8a7775130a8147a50a57d8fa4b5fa, type: 2}
 --- !u!4 &1312553211
 Transform:
   m_ObjectHideFlags: 0

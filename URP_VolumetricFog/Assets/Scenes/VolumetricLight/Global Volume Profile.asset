@@ -1,0 +1,116 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
+  m_Name: Global Volume Profile
+  m_EditorClassIdentifier: 
+  components:
+  - {fileID: 5646361369675449773}
+--- !u!114 &5646361369675449773
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 170b3b57bd3e49ccb564b8007110ee30, type: 3}
+  m_Name: VolumetricFog
+  m_EditorClassIdentifier: 
+  active: 1
+  m_AdvancedMode: 0
+  ForwardScatteringColor:
+    m_OverrideState: 1
+    m_Value: {r: 0.7264151, g: 0.7264151, b: 0.7264151, a: 1}
+    hdr: 0
+    showAlpha: 1
+    showEyeDropper: 1
+  BackwardScatteringColor:
+    m_OverrideState: 1
+    m_Value: {r: 0.7735849, g: 0.7735849, b: 0.7735849, a: 1}
+    hdr: 0
+    showAlpha: 1
+    showEyeDropper: 1
+  AmbientLight:
+    m_OverrideState: 1
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
+    hdr: 0
+    showAlpha: 1
+    showEyeDropper: 1
+  OutsideIntensity:
+    m_OverrideState: 0
+    m_Value: 7.5
+    min: 0
+    max: 30
+  HeightFallOff:
+    m_OverrideState: 0
+    m_Value: 0.25
+    min: 0
+    max: 3
+  MaxFogDistance:
+    m_OverrideState: 0
+    m_Value: 434
+    min: 50
+    max: 1000
+  HorizonHeight:
+    m_OverrideState: 0
+    m_Value: 10
+    min: -10
+    max: 10
+  InnerIntensity:
+    m_OverrideState: 1
+    m_Value: 12.5
+    min: 0
+    max: 30
+  Distance:
+    m_OverrideState: 1
+    m_Value: 135
+    min: 1
+    max: 300
+  IgnoreSkybox:
+    m_OverrideState: 0
+    m_Value: 0
+  Noise:
+    m_OverrideState: 0
+    m_Value: {fileID: 11700000, guid: fb8a7646f5b5b334f95f8fa8d4416d1f, type: 2}
+  NoiseTiling:
+    m_OverrideState: 0
+    m_Value: 1
+    min: 0.05
+    max: 20
+  NoiseSpeed:
+    m_OverrideState: 0
+    m_Value: {x: 5, y: 0, z: 0}
+  Detail:
+    m_OverrideState: 0
+    m_Value: {fileID: 11700000, guid: c5305ccdf524007419f57572910c5687, type: 2}
+  DetailTiling:
+    m_OverrideState: 0
+    m_Value: 6.1
+    min: 0.05
+    max: 20
+  DetailSpeed:
+    m_OverrideState: 0
+    m_Value: {x: -1, y: 0, z: 0}
+  DetailIntensity:
+    m_OverrideState: 0
+    m_Value: 0.237
+    min: 0
+    max: 1
+  EnableVolumetricLight:
+    m_OverrideState: 1
+    m_Value: 1
+  VolumetricFogQuality:
+    m_OverrideState: 0
+    m_Value: 3
+    min: 1
+    max: 3

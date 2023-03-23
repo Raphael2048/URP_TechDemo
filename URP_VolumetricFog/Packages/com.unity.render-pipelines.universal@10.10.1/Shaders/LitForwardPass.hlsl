@@ -173,6 +173,10 @@ half4 LitPassFragment(Varyings input) : SV_Target
     half4 color = UniversalFragmentPBR(inputData, surfaceData);
 
     color.rgb = MixFog(color.rgb, inputData.fogCoord);
+
+#if _SURFACE_TYPE_TRANSPARENT && _VOLUMETRIC_FOG
+    color.rgb = ApplyVolumetricFog(color.rgb, input.positionCS);
+#endif
     color.a = OutputAlpha(color.a, _Surface);
 
     return color;
