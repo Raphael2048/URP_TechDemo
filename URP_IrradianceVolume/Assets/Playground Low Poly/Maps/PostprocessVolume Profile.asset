@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
+  m_Name: PostprocessVolume Profile
+  m_EditorClassIdentifier: 
+  components:
+  - {fileID: 5145459685293660002}
+--- !u!114 &5145459685293660002
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 170b3b57bd3e49ccb564b8007110ee30, type: 3}
+  m_Name: VolumetricFog
+  m_EditorClassIdentifier: 
+  active: 0
+  ForwardScatteringColor:
+    m_OverrideState: 0
+    m_Value: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  BackwardScatteringColor:
+    m_OverrideState: 0
+    m_Value: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  AmbientLight:
+    m_OverrideState: 1
+    m_Value: {r: 0.8584906, g: 0.7069164, b: 0.5385814, a: 1}
+  OutsideIntensity:
+    m_OverrideState: 1
+    m_Value: 9.62
+  HeightFallOff:
+    m_OverrideState: 1
+    m_Value: 0.461
+  MaxFogDistance:
+    m_OverrideState: 1
+    m_Value: 562
+  HorizonHeight:
+    m_OverrideState: 1
+    m_Value: 8.29
+  InnerIntensity:
+    m_OverrideState: 0
+    m_Value: 7.03
+  Distance:
+    m_OverrideState: 1
+    m_Value: 16
+  IgnoreSkybox:
+    m_OverrideState: 0
+    m_Value: 0
+  Noise:
+    m_OverrideState: 1
+    m_Value: {fileID: 11700000, guid: dd5671c23b918d64e9940aed20c77384, type: 2}
+  NoiseTiling:
+    m_OverrideState: 0
+    m_Value: 1
+  NoiseSpeed:
+    m_OverrideState: 0
+    m_Value: {x: 1, y: 0, z: 0}
+  Detail:
+    m_OverrideState: 0
+    m_Value: {fileID: 0}
+  DetailTiling:
+    m_OverrideState: 0
+    m_Value: 1
+  DetailSpeed:
+    m_OverrideState: 0
+    m_Value: {x: -1, y: 0, z: 0}
+  DetailIntensity:
+    m_OverrideState: 0
+    m_Value: 0.5
+  EnableVolumetricLight:
+    m_OverrideState: 0
+    m_Value: 0
+  VolumetricFogQuality:
+    m_OverrideState: 0
+    m_Value: 1
