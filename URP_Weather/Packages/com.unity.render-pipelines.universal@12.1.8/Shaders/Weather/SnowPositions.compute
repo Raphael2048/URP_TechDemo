@@ -1,0 +1,80 @@
+#pragma kernel Clear
+#pragma kernel Main
+#pragma enable_d3d11_debug_symbols
+// Generic Graphics includes
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "WeatherEffect.hlsl"
+
+RWTexture2D<float4> _SnowPositions;
+ 
+RWBuffer<uint> _IndirectParams;
+
+float RadicalInverse_Vdc(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10; // / 0x100000000 
+}
+
+[numthreads(1, 1, 1)]
+void Clear(int3 id : SV_DispatchThreadID)
+{
+    _IndirectParams[1] = 0;
+}
+
+// x: top height, y: height range, z : inv Loop time, w : radius
+float4 _DistributionParams;
+// float4 _FrustumPlanes[6];
+
+[numthreads(8, 8, 1)]
+void Main(int3 id : SV_DispatchThreadID, int3 groupId : SV_GroupID, int3 groupThreadID : SV_GroupThreadID)
+{
+    float3 BasePosition = floor(_WorldSpaceCameraPos);
+    // -4~3, -4~3
+    int2 tileID = int2(groupThreadID.x, groupId.x) - 4;
+    
+    // uint innerIndex = groupThreadID.y + groupId.y * 8;
+    float2 innerPosition = float2(groupThreadID.y / 8.0f, RadicalInverse_Vdc(groupId.y));
+
+    int2 iPos = (int2)BasePosition.xz + tileID;
+    float2 pos = iPos + innerPosition;
+    iPos = iPos * 19 + int2(groupThreadID.y, groupId.y);
+    iPos = iPos % 5000;
+    float3 rand3 = float3(frac(sin(dot(iPos, float2(12.9898, 78.233))) * 1000.0f), frac(sin(dot(iPos, float2(56.849, 96.564))) * 1000.0f), frac(sin(dot(iPos, float2(25.9856, 3.598))) * 1000.0f));
+    // pos += rand2;
+    
+    float T = frac(_Time.z * _DistributionParams.z + rand3.x);
+    float Angle = frac(rand3.y + _Time.y * 0.5f * rand3.z) * TWO_PI;
+    float SinAngle, CosAngle;
+    sincos(Angle, SinAngle, CosAngle);
+    float JitterRadius = _DistributionParams.w * rand3.y;
+    float3 particlePosition = float3(pos.x + JitterRadius * CosAngle, _DistributionParams.x - _DistributionParams.y * T, pos.y + JitterRadius * SinAngle);
+
+    float3 windOffset = _DistributionParams.y * (T - 0.5f) * _WindParams.xyz * _WindParams.w;
+    particlePosition += windOffset;
+    
+    bool inside = true;
+    UNITY_UNROLL
+    for(int i = 0; i < 6; ++i)
+    {
+        if(dot(float4(particlePosition, 1.0f),  _FrustumPlanes[i]) < 0)
+        {
+            inside = false;
+            break;
+        }
+    }
+
+    if(inside)
+    {
+        int index;
+        InterlockedAdd(_IndirectParams[1], 1, index);
+        uint textureID = (iPos.x + iPos.y) & 3;
+        _SnowPositions[IndexToID(index)] = float4(particlePosition, asfloat(textureID));
+    }
+}
+
+

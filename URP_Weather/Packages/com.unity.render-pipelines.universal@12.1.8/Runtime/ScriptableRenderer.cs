@@ -158,7 +158,29 @@ namespace UnityEngine.Rendering.Universal
                 cmd.SetGlobalMatrix(ShaderPropertyId.inverseViewMatrix, inverseViewMatrix);
                 cmd.SetGlobalMatrix(ShaderPropertyId.inverseProjectionMatrix, inverseProjectionMatrix);
                 cmd.SetGlobalMatrix(ShaderPropertyId.inverseViewAndProjectionMatrix, inverseViewProjection);
+                
+                // xy coordinates in range [-1; 1] go to pixel coordinates.
+                Matrix4x4 toScreen = new Matrix4x4(
+                    new Vector4(0.5f * cameraData.pixelWidth, 0.0f, 0.0f, 0.0f),
+                    new Vector4(0.0f, 0.5f * cameraData.pixelHeight, 0.0f, 0.0f),
+                    new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
+                    new Vector4(0.5f * cameraData.pixelWidth, 0.5f * cameraData.pixelHeight, 0.0f, 1.0f)
+                );
+
+                Matrix4x4 zScaleBias = Matrix4x4.identity;
+                if (!SystemInfo.usesReversedZBuffer)
+                {
+                    // We need to manunally adjust z in NDC space from [-1; 1] to [0; 1] (storage in depth texture).
+                    zScaleBias = new Matrix4x4(
+                        new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
+                        new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
+                        new Vector4(0.0f, 0.0f, 0.5f, 0.0f),
+                        new Vector4(0.0f, 0.0f, 0.5f, 1.0f)
+                    );
+                }
+                cmd.SetGlobalMatrix(ShaderPropertyId.screenToWorld, Matrix4x4.Inverse(toScreen * zScaleBias * gpuProjectionMatrix * viewMatrix));
             }
+            
 
             // TODO: Add SetPerCameraClippingPlaneProperties here once we are sure it correctly behaves in overlay camera for some time
         }

@@ -1,5 +1,45 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8868598799629934431
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a0c12873ff24609a2e1852bb971818d, type: 3}
+  m_Name: Snow
+  m_EditorClassIdentifier: 
+  active: 1
+  SnowIntensity:
+    m_OverrideState: 1
+    m_Value: 0.221
+  SnowMaskTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: 667e641c444e9ee48b8a33143858036b, type: 3}
+  SnowMaskTextureScale:
+    m_OverrideState: 1
+    m_Value: 4.12
+  EnableMask:
+    m_OverrideState: 1
+    m_Value: 1
+  SnowTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: fe80a18a4874f07449fbe18335a8d1be, type: 3}
+  SnowDensity:
+    m_OverrideState: 1
+    m_Value: 6
+  JitterRadius:
+    m_OverrideState: 1
+    m_Value: 0.1
+  FallDownSpeed:
+    m_OverrideState: 1
+    m_Value: 1.536
+  HeightRange:
+    m_OverrideState: 0
+    m_Value: {x: 0, y: 20}
 --- !u!114 &-7893295128165547882
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -13,40 +53,34 @@ MonoBehaviour:
   m_Name: Bloom
   m_EditorClassIdentifier: 
   active: 1
-  m_AdvancedMode: 0
   threshold:
     m_OverrideState: 1
     m_Value: 1
-    min: 0
   intensity:
     m_OverrideState: 1
     m_Value: 1
-    min: 0
   scatter:
     m_OverrideState: 0
     m_Value: 0.7
-    min: 0
-    max: 1
   clamp:
     m_OverrideState: 0
     m_Value: 65472
-    min: 0
   tint:
     m_OverrideState: 0
     m_Value: {r: 1, g: 1, b: 1, a: 1}
-    hdr: 0
-    showAlpha: 0
-    showEyeDropper: 1
   highQualityFiltering:
     m_OverrideState: 0
     m_Value: 0
+  skipIterations:
+    m_OverrideState: 0
+    m_Value: 1
   dirtTexture:
     m_OverrideState: 0
     m_Value: {fileID: 0}
+    dimension: 1
   dirtIntensity:
     m_OverrideState: 0
     m_Value: 0
-    min: 0
 --- !u!114 &-7011558710299706105
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -60,29 +94,40 @@ MonoBehaviour:
   m_Name: Vignette
   m_EditorClassIdentifier: 
   active: 1
-  m_AdvancedMode: 0
   color:
     m_OverrideState: 0
     m_Value: {r: 0, g: 0, b: 0, a: 1}
-    hdr: 0
-    showAlpha: 0
-    showEyeDropper: 1
   center:
     m_OverrideState: 0
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
     m_Value: 0.25
-    min: 0
-    max: 1
   smoothness:
     m_OverrideState: 1
     m_Value: 0.4
-    min: 0.01
-    max: 1
   rounded:
     m_OverrideState: 0
     m_Value: 0
+--- !u!114 &-1829841334030054294
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 804ea72ee19b49228b072214ebddc997, type: 3}
+  m_Name: Wind
+  m_EditorClassIdentifier: 
+  active: 1
+  WindDirection:
+    m_OverrideState: 1
+    m_Value: 0
+  WindIntensity:
+    m_OverrideState: 1
+    m_Value: 0.223
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -99,6 +144,9 @@ MonoBehaviour:
   - {fileID: 849379129802519247}
   - {fileID: -7893295128165547882}
   - {fileID: -7011558710299706105}
+  - {fileID: 8296735370319806008}
+  - {fileID: -8868598799629934431}
+  - {fileID: -1829841334030054294}
 --- !u!114 &849379129802519247
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -112,7 +160,63 @@ MonoBehaviour:
   m_Name: Tonemapping
   m_EditorClassIdentifier: 
   active: 1
-  m_AdvancedMode: 0
   mode:
     m_OverrideState: 1
     m_Value: 2
+--- !u!114 &8296735370319806008
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67810cc8cea04e2a9ebdb2a568e7a6d8, type: 3}
+  m_Name: Rain
+  m_EditorClassIdentifier: 
+  active: 0
+  RainIntensity:
+    m_OverrideState: 1
+    m_Value: 0.563
+  rainDome: {fileID: 4300000, guid: 6b86ef0903e7baf49baeade501c7ad2b, type: 2}
+  rainSplashMesh: {fileID: 4300000, guid: 3c1e39aca5e880348974a9a28ec12c46, type: 2}
+  RainTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: e06924ffd4ca70f48b29edf4992ec699, type: 3}
+  RainTextureScale:
+    m_OverrideState: 1
+    m_Value: 7
+  RainSpeed:
+    m_OverrideState: 1
+    m_Value: 15
+  RainRange:
+    m_OverrideState: 1
+    m_Value: {x: 0, y: 39.000023}
+  EnableRipple:
+    m_OverrideState: 1
+    m_Value: 1
+  RippleSheetTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: ce558de1628ac7545b1196d895105c39, type: 3}
+  RippleIntensity:
+    m_OverrideState: 1
+    m_Value: 5
+  RippleSize:
+    m_OverrideState: 1
+    m_Value: 1
+  EnableSplash:
+    m_OverrideState: 1
+    m_Value: 1
+  SplashSheetTexture:
+    m_OverrideState: 1
+    m_Value: {fileID: 2800000, guid: eb49f5d3a4a045f4093c66c88c13c93d, type: 3}
+  SplashRange:
+    m_OverrideState: 1
+    m_Value: 1
+  SplashSize:
+    m_OverrideState: 1
+    m_Value: 0.5
+  EnableMask:
+    m_OverrideState: 1
+    m_Value: 1

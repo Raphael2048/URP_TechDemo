@@ -101,6 +101,10 @@ namespace UnityEngine.Rendering.Universal
         XROcclusionMeshPass m_XROcclusionMeshPass;
         CopyDepthPass m_XRCopyDepthPass;
 #endif
+        RainAndSnowMaskPass m_RainAndSnowMaskPass;
+        RainPass m_RainPass;
+        SnowPass m_SnowPass;
+        WindPass m_WindPass;
 #if UNITY_EDITOR
         CopyDepthPass m_FinalDepthCopyPass;
 #endif
@@ -137,6 +141,7 @@ namespace UnityEngine.Rendering.Universal
         Material m_StencilDeferredMaterial = null;
         Material m_CameraMotionVecMaterial = null;
         Material m_ObjectMotionVecMaterial = null;
+        Material m_RainAndSnowMaterial = null;
 
         PostProcessPasses m_PostProcessPasses;
         internal ColorGradingLutPass colorGradingLutPass { get => m_PostProcessPasses.colorGradingLutPass; }
@@ -183,6 +188,7 @@ namespace UnityEngine.Rendering.Universal
             m_StencilDeferredMaterial = CoreUtils.CreateEngineMaterial(data.shaders.stencilDeferredPS);
             m_CameraMotionVecMaterial = CoreUtils.CreateEngineMaterial(data.shaders.cameraMotionVector);
             m_ObjectMotionVecMaterial = CoreUtils.CreateEngineMaterial(data.shaders.objectMotionVector);
+            m_RainAndSnowMaterial = CoreUtils.CreateEngineMaterial(data.shaders.rainAndSnow);
 
             StencilStateData stencilData = data.defaultStencilState;
             m_DefaultStencilState = StencilState.defaultValue;
@@ -310,6 +316,11 @@ namespace UnityEngine.Rendering.Universal
 #if UNITY_EDITOR
             m_FinalDepthCopyPass = new CopyDepthPass(RenderPassEvent.AfterRendering + 9, m_CopyDepthMaterial);
 #endif
+            
+            m_RainAndSnowMaskPass = new RainAndSnowMaskPass(RenderPassEvent.BeforeRenderingShadows, m_RainAndSnowMaterial);
+            m_RainPass = new RainPass(RenderPassEvent.BeforeRenderingTransparents + 1, m_RainAndSnowMaterial);
+            m_SnowPass = new SnowPass(RenderPassEvent.BeforeRenderingTransparents, data.shaders.snowPosition, m_RainAndSnowMaterial);
+            m_WindPass = new WindPass(RenderPassEvent.BeforeRenderingShadows);
 
             // RenderTexture format depends on camera and pipeline (HDR, non HDR, etc)
             // Samples (MSAA) depend on camera and pipeline
@@ -356,7 +367,8 @@ namespace UnityEngine.Rendering.Universal
             CoreUtils.Destroy(m_StencilDeferredMaterial);
             CoreUtils.Destroy(m_CameraMotionVecMaterial);
             CoreUtils.Destroy(m_ObjectMotionVecMaterial);
-
+            CoreUtils.Destroy(m_RainAndSnowMaterial);
+            
             Blitter.Cleanup();
 
             LensFlareCommonSRP.Dispose();
@@ -665,6 +677,25 @@ namespace UnityEngine.Rendering.Universal
             if (additionalLightShadows)
                 EnqueuePass(m_AdditionalLightsShadowCasterPass);
 
+            var rain = VolumeManager.instance.stack.GetComponent<Rain>();
+            var snow = VolumeManager.instance.stack.GetComponent<Snow>();
+            if ((rain.IsActive() && rain.EnableMask.value) || (snow.IsActive() && snow.EnableMask.value))
+            {
+                if(m_RainAndSnowMaskPass.Setup(ref cameraData)) EnqueuePass(m_RainAndSnowMaskPass);
+            }
+            if (rain.IsActive())
+            {
+                // EnqueuePass(_mRainMaterialEffectPass);
+                EnqueuePass(m_RainPass);
+            }
+
+            if (snow.IsActive())
+            {
+                EnqueuePass(m_SnowPass);
+            }
+            EnqueuePass(m_WindPass);
+            
+            
             if (requiresDepthPrepass)
             {
                 if (renderPassInputs.requiresNormalsTexture)

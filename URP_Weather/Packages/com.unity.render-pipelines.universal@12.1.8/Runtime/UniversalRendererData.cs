@@ -81,6 +81,12 @@ namespace UnityEngine.Rendering.Universal
 
             [Reload("Shaders/ObjectMotionVectors.shader")]
             public Shader objectMotionVector;
+            
+            // Weather
+            [Reload("Shaders/Weather/RainAndSnow.shader")]
+            public Shader rainAndSnow;
+            [Reload("Shaders/Weather/SnowPositions.compute")]
+            public ComputeShader snowPosition;
         }
 
         public PostProcessData postProcessData = null;

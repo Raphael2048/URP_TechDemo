@@ -2,7 +2,7 @@
 #define UNIVERSAL_FORWARD_LIT_PASS_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
-
+#include "Packages/com.unity.render-pipelines.universal/Shaders/Weather/WeatherEffect.hlsl"
 // GLES2 has limited amount of interpolators
 #if defined(_PARALLAXMAP) && !defined(SHADER_API_GLES)
 #define REQUIRES_TANGENT_SPACE_VIEW_DIR_INTERPOLATOR
@@ -213,6 +213,16 @@ half4 LitPassFragment(Varyings input) : SV_Target
 
     InputData inputData;
     InitializeInputData(input, surfaceData.normalTS, inputData);
+
+    float roughness = 1.0f - surfaceData.smoothness;
+#if _RAIN
+    ApplyRainWetEffect(surfaceData.albedo, roughness, surfaceData.occlusion, inputData.normalWS, inputData.positionWS, input.normalWS);
+#endif
+#if _SNOW
+    ApplySnowyEffect(surfaceData.albedo, roughness, inputData.normalWS, inputData.positionWS, input.normalWS);
+#endif
+    surfaceData.smoothness = 1.0f - roughness;
+    
     SETUP_DEBUG_TEXTURE_DATA(inputData, input.uv, _BaseMap);
 
 #ifdef _DBUFFER

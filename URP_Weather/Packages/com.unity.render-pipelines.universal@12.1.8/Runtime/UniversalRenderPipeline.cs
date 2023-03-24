@@ -978,6 +978,17 @@ namespace UnityEngine.Rendering.Universal
             cameraData.SetViewAndProjectionMatrix(camera.worldToCameraMatrix, projectionMatrix);
 
             cameraData.worldSpaceCameraPos = camera.transform.position;
+            
+            // Frustrum
+            cameraData.frustum = new Frustum();
+            cameraData.frustum.planes = new Plane[6];
+            cameraData.frustum.corners = new Vector3[8];
+            Vector3 viewDir = -camera.cameraToWorldMatrix.GetColumn(2);
+            viewDir.Normalize();
+            float n = camera.nearClipPlane;
+            float f = camera.farClipPlane;
+            Frustum.Create(ref cameraData.frustum, projectionMatrix * camera.worldToCameraMatrix, camera.cameraToWorldMatrix.GetColumn(3), viewDir, n, f);
+
         }
 
         static void InitializeRenderingData(UniversalRenderPipelineAsset settings, ref CameraData cameraData, ref CullingResults cullResults,
