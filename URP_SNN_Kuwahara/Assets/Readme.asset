@@ -12,23 +12,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fcf7219bab7fe46a1ad266029b2fee19, type: 3}
   m_Name: Readme
   m_EditorClassIdentifier: 
-  icon: {fileID: 2800000, guid: 727a75301c3d24613a3ebcec4a24c2c8, type: 3}
-  title: URP Empty Template
+  icon: {fileID: 2800000, guid: 7801804018a7dcf42abb827444e18660, type: 3}
+  title: Universal Render Pipeline Template
   sections:
-  - heading: Welcome to the Universal Render Pipeline
-    text: This template includes the settings and assets you need to start creating with the Universal Render Pipeline.
+  - heading: Universal Render Pipeline
+    text: 'The Universal Project Template configures Project settings for Projects where performance, wide platform support, and ease of customizing graphics are the primary considerations.'
     linkText: 
+    url: 
+  - heading:
+    text: 'This Template uses the Universal Render Pipeline (URP) and Shader Graph.'
+    linkText: 
+    url: 
+  - heading:
+    text: 'URP is prebuilt Scriptable Render Pipeline that is quick and easy to customize, and lets you create optimized graphics across a wide range of platforms. URP also includes an optimized 2D renderer complete with 2D lights and pixel perfect rendering, and an integrated post-processing solution.'
+    linkText: 
+    url: 
+  - heading:
+    text: 'Shader Graph is a tool that allows you to create shaders using a visual node editor instead of writing code.'
+    linkText:
     url:
-  - heading: URP Documentation
-    text:
-    linkText: Read more about URP
-    url: https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest
-  - heading: Forums
-    text:
-    linkText: Get answers and support
-    url: https://forum.unity.com/forums/universal-render-pipeline.383/
-  - heading: Report bugs
-    text:
-    linkText: Submit a report
-    url: https://unity3d.com/unity/qa/bug-reporting
+  - heading: 
+    text: 'This template contains a sample Scene that contains examples of how to configure lighting settings, Materials, Shaders, and post-processing effects in URP, several preconfigured Universal Render Pipeline Assets that let you quickly swap between graphics quality levels, and Presets that have been optimized for use with URP.'
+    linkText:
+    url:
+  - heading: 
+    text: 'To read more about URP and its built-in features, see the '
+    linkText: URP documentation.
+    url: https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@latest/index.html
+  - heading: 
+    text: 'For more information about Shader Graph, see the '
+    linkText: Shader Graph documentation
+    url: https://docs.unity3d.com/Packages/com.unity.shadergraph@latest
   loadedLayout: 1
