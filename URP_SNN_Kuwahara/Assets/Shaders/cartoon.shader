@@ -42,7 +42,7 @@ Shader "Hidden/Universal Render Pipeline/CartoonPP"
                 return dot(D, D);
             }
     
-            #define HALF_WIDTH 5
+            #define HALF_WIDTH 4
             half4 snn(Varyings input) : SV_Target
             {
                 half4 sum = 0;;
@@ -51,9 +51,9 @@ Shader "Hidden/Universal Render Pipeline/CartoonPP"
                 {
                     for(int i = -HALF_WIDTH; i <= HALF_WIDTH; ++i)
                     {
-                        if(j == 0 && i < 1) continue;
-                        half4 c1 = _BlitTexture.SampleLevel(sampler_PointClamp, input.uv, 0, int2(i, j));
-                        half4 c2 = _BlitTexture.SampleLevel(sampler_PointClamp, input.uv, 0, int2(-i, -j));
+                        if(j == 0 && i <= 0) continue;
+                        half4 c1 = _BlitTexture.SampleLevel(sampler_PointClamp, input.uv + float2(i, j) * _BlitTexture_TexelSize.xy, 0);
+                        half4 c2 = _BlitTexture.SampleLevel(sampler_PointClamp, input.uv + -float2(i, j) * _BlitTexture_TexelSize.xy, 0);
                         half d1 = distance(c1, C);
                         half d2 = distance(c2, C);
                         if(d1 < d2)
