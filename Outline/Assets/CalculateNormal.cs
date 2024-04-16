@@ -53,6 +53,7 @@ public class CalculateNormal : ScriptableWizard
             mesh.Add(mesh1);
         }
     }
+    
     void OnWizardCreate()
     {       
         if(obj != null || mesh1 != null)
@@ -70,6 +71,19 @@ public class CalculateNormal : ScriptableWizard
             }
         }
     }
+
+
+    Vector2 OctahedralEncode(Vector3 N)
+    {
+        float Sum = Mathf.Abs(N.x) + Mathf.Abs(N.y) + Mathf.Abs(N.z);
+        Vector2 OctNormal = ((Vector2)N) / Sum;
+        if (N.z <= 0)
+        {
+            OctNormal = (Vector2.one - new Vector2(Mathf.Abs(OctNormal.y), Mathf.Abs(OctNormal.x)))
+                        * new Vector2(OctNormal.x >= 0 ? 1 : -1, OctNormal.y >= 0 ? 1 : -1);
+        }
+        return OctNormal;
+    }
     
 
     void AngleNormal(Mesh mesh)
@@ -80,12 +94,18 @@ public class CalculateNormal : ScriptableWizard
         Vector3[] vertices = mesh.vertices;
         Vector4[] tangents = mesh.tangents;
         Vector3[] normals = mesh.normals;
+        
+        Color[] colors = mesh.colors;
+        if (colors == null)
+        {
+            colors = new Color[vertexCount];
+            for(int i = 0; i < colors.Length; ++i)
+            {
+                colors[i] = Color.white;
+            }
+        }
 
         var angleNormalHash = new Dictionary<Vector3, Vector3>();
-        // var angleNormalHash = new Dictionary<long,Vector3>();
-        Vector2[] uv3 = new Vector2[vertexCount];
-        Vector2[] uv4 = new Vector2[vertexCount];
-
         for(int i = 0;i < triangleCount; i+=3)
         {
             long i0 = triangles[i];
@@ -130,17 +150,19 @@ public class CalculateNormal : ScriptableWizard
             Vector3 tangentV3 = new Vector3(tangents[i].x, tangents[i].y, tangents[i].z);
             Vector3 bitangentV3 = Vector3.Cross(normals[i],tangentV3) * tangents[i].w;
             bitangentV3 = bitangentV3.normalized;
+            
             var TBN = new Matrix4x4(tangentV3,bitangentV3,normals[i],Vector4.zero);
             TBN = TBN.transpose;
             normal = TBN.MultiplyVector(normal).normalized;
-
-            uv3[i] = new Vector2(normal.x, normal.y);
-            uv4[i] = new Vector2(normal.z,0);
             
+            Vector2 oct = (OctahedralEncode(normal) + Vector2.one) * 0.5f;
+            
+            colors[i].b = oct.x;
+            colors[i].a = oct.y;
+
         }
-        mesh.uv3 = uv3;
-        mesh.uv4 = uv4;
-        Debug.Log("CalculateAngleNormal:"+mesh.name);
+        mesh.colors = colors;
+        Debug.Log("CalculateAngleNormal:" + mesh.name);
     }
 
 
@@ -148,6 +170,6 @@ public class CalculateNormal : ScriptableWizard
     [MenuItem("Tools/Calculate Normal")]
     static void Calculate_Normal()
     {
-        ScriptableWizard.DisplayWizard<CalculateNormal>("模型平均法线写入UV3&UV4","Average Normal");
+        ScriptableWizard.DisplayWizard<CalculateNormal>("模型平均法线写入顶点色BA","Average Normal");
     }
 }
