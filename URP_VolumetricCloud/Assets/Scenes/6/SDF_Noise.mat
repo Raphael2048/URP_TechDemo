@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: SDF_Noise
+  m_Shader: {fileID: 4800000, guid: 48b7b736075d61a43a11ded6c39036c1, type: 3}
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _Noise:
+        m_Texture: {fileID: 11700000, guid: 1fe54a721d0e2504e89f121c723404a8, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _SDF:
+        m_Texture: {fileID: 11700000, guid: 52d2df4c69099ad4ea04530b771d12ad, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Alpha: 0.291
+    - _AmbientIntensity: 0.0427
+    - _G0: 0.3
+    - _G1: -0.3
+    - _NoiseIntensity: 0.478
+    - _NoiseScale: 4.55
+    - _NoiseSpeed: 0.179
+    - _Phase: 0.36
+    - _PhaseG: 0
+    - _SDFBorder: 15.1
+    - _SigmaT: 121.1
+    - _StepSize: 0.01
+    - _StepSize2: 0.0126
+    m_Colors: []
+  m_BuildTextureStacks: []
